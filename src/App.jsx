@@ -1,28 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Register from './pages/Register';
+import AdminLoans from './pages/AdminLoans';
 
-function Header() {
+function App() {
   return (
-    <header className="site-header">
-      <div className="site-header__inner">
-        <div>
-          <div className="site-header__mark">KEMRI SACCO</div>
-        </div>
-        <div className="site-header__tag">Member Portal</div>
-      </div>
-    </header>
+    <div className="min-h-screen bg-gray-100">
+      <AdminLoans />
+    </div>
   );
 }
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Header />
-      <main>
-        <Routes>
-          <Route path="/" element={<Register />} />
-        </Routes>
-      </main>
-    </BrowserRouter>
-  );
-}
+export default App;
