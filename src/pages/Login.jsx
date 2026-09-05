@@ -31,13 +31,11 @@ function Login() {
           <h1 className="text-2xl font-bold text-gray-800">KEMRI SACCO</h1>
           <p className="text-sm text-gray-500">Admin Login</p>
         </div>
-
         {error && (
           <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
-
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -72,10 +70,6 @@ function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="mt-4 text-center text-xs text-gray-400">
-          Default: admin / KemriAdmin2026!
-        </div>
       </div>
     </div>
   );
