@@ -7,6 +7,7 @@ const CATEGORIES = [
   { value: 'all', label: 'All categories' },
   { value: 'loan_decision', label: 'Loan decisions' },
   { value: 'member_edit', label: 'Member edits' },
+  { value: 'staff_management', label: 'Staff management' },
 ];
 
 function AuditTrail() {
@@ -58,6 +59,7 @@ function AuditTrail() {
     const map = {
       loan_decision: { background: '#d6e4f0', color: '#1c4a75' },
       member_edit: { background: 'var(--color-gold-soft)', color: '#7a5a10' },
+      staff_management: { background: '#e3d9f5', color: '#55308a' },
     };
     return map[cat] || { background: 'var(--color-sage)', color: 'var(--color-forest-deep)' };
   };

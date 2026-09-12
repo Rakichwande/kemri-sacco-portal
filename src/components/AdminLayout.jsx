@@ -15,25 +15,25 @@ const NAV_GROUPS = [
     label: 'Loans',
     items: [
       { label: 'Approval Queue', to: '/admin' },
-      { label: 'Disbursement Log', to: null },
-      { label: 'Repayment History', to: null },
+      { label: 'Disbursement Log', to: '/admin/disbursements' },
+      { label: 'Repayment History', to: '/admin/repayments' },
     ],
   },
   {
     label: 'Members',
     items: [
-      { label: 'Directory', to: null },
-      { label: 'Contribution Logs', to: null },
+      { label: 'Directory', to: '/admin/members' },
+      { label: 'Contribution Logs', to: '/admin/contributions' },
     ],
   },
   {
     label: 'Reports',
-    items: [{ label: 'Financial Reports', to: null }],
+    items: [{ label: 'Financial Reports', to: '/admin/reports' }],
   },
   {
     label: 'Administration',
     items: [
-      { label: 'Staff Management', to: null },
+      { label: 'Staff Management', to: '/admin/staff' },
       { label: 'Audit Trail', to: '/admin/audit-trail' },
     ],
   },

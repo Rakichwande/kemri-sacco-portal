@@ -4,6 +4,12 @@ import Login from './pages/Login';
 import AdminLoans from './pages/AdminLoans';
 import AuditTrail from './pages/AuditTrail';
 import Dashboard from './pages/Dashboard';
+import MemberDirectory from './pages/MemberDirectory';
+import DisbursementLog from './pages/DisbursementLog';
+import RepaymentHistory from './pages/RepaymentHistory';
+import ContributionLogs from './pages/ContributionLogs';
+import StaffManagement from './pages/StaffManagement';
+import FinancialReports from './pages/FinancialReports';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -29,6 +35,36 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={
         <ProtectedRoute>
           <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/members" element={
+        <ProtectedRoute>
+          <MemberDirectory />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/disbursements" element={
+        <ProtectedRoute>
+          <DisbursementLog />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/repayments" element={
+        <ProtectedRoute>
+          <RepaymentHistory />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/contributions" element={
+        <ProtectedRoute>
+          <ContributionLogs />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/staff" element={
+        <ProtectedRoute>
+          <StaffManagement />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/reports" element={
+        <ProtectedRoute>
+          <FinancialReports />
         </ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/admin/dashboard" />} />

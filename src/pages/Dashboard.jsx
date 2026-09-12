@@ -12,6 +12,20 @@ function formatKES(amount) {
 // yet, and pulling one in for a single chart isn't worth the bundle size.
 function ComparisonChart({ data }) {
   const max = Math.max(...data.flatMap((d) => [d.contributions, d.repayments]), 1);
+  const hasAnyActivity = data.some((d) => d.contributions > 0 || d.repayments > 0);
+
+  if (!hasAnyActivity) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: 160, color: 'rgba(31,36,33,0.45)', fontSize: '0.88rem',
+        border: '1px dashed var(--color-line)', borderRadius: 4,
+      }}>
+        No contributions or repayments recorded yet.
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: '0.8rem' }}>
