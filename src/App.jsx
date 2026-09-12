@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import AdminLoans from './pages/AdminLoans';
+import AuditTrail from './pages/AuditTrail';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -17,6 +18,11 @@ function AppRoutes() {
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminLoans />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/audit-trail" element={
+        <ProtectedRoute>
+          <AuditTrail />
         </ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/admin" />} />

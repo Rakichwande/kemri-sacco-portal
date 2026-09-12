@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -8,7 +9,7 @@ function AdminLoans() {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, disbursed: 0, repaid: 0 });
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, disbursed: 0, repaid: 0, rejected: 0 });
   const [receipt, setReceipt] = useState({});
 
   // Helper to get token from localStorage
@@ -41,6 +42,7 @@ function AdminLoans() {
         approved: data.filter(l => l.status === 'approved').length,
         disbursed: data.filter(l => l.status === 'disbursed').length,
         repaid: data.filter(l => l.status === 'repaid').length,
+        rejected: data.filter(l => l.status === 'rejected').length,
       });
     } catch (err) {
       console.error('Fetch loans error:', err);
@@ -99,6 +101,31 @@ function AdminLoans() {
     }
   };
 
+  // Reject loan
+  const handleReject = async (loanId) => {
+    const adminNotes = window.prompt('Reason for rejecting this loan (shown to the member):', '');
+    if (adminNotes === null) return; // cancelled
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/loans/reject/${loanId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ adminNotes })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to reject');
+      }
+      alert('Loan rejected.');
+      fetchLoans();
+    } catch (err) {
+      alert('❌ Error: ' + err.message);
+    }
+  };
+
   // Format currency
   const formatKES = (amount) => `KES ${Number(amount).toLocaleString()}`;
 
@@ -108,7 +135,8 @@ function AdminLoans() {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-blue-100 text-blue-800',
       disbursed: 'bg-purple-100 text-purple-800',
-      repaid: 'bg-green-100 text-green-800'
+      repaid: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -147,6 +175,9 @@ function AdminLoans() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">🏦 KEMRI SACCO Admin</h1>
         <div className="flex items-center gap-4">
+          <Link to="/admin/audit-trail" className="text-sm text-gray-600 hover:text-gray-900 underline">
+            Audit Trail
+          </Link>
           <span className="text-sm text-gray-600">Welcome, {user?.full_name || 'Admin'}</span>
           <button
             onClick={logout}
@@ -178,6 +209,10 @@ function AdminLoans() {
         <div className="bg-white p-4 rounded shadow border-l-4 border-green-500">
           <div className="text-2xl font-bold text-green-600">{stats.repaid}</div>
           <div className="text-sm text-gray-500">Repaid</div>
+        </div>
+        <div className="bg-white p-4 rounded shadow border-l-4 border-red-500">
+          <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+          <div className="text-sm text-gray-500">Rejected</div>
         </div>
       </div>
 
@@ -218,12 +253,20 @@ function AdminLoans() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {loan.status === 'pending' && (
-                      <button
-                        onClick={() => handleApprove(loan.id)}
-                        className="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm"
-                      >
-                        ✅ Approve
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleApprove(loan.id)}
+                          className="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm"
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(loan.id)}
+                          className="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm"
+                        >
+                          ❌ Reject
+                        </button>
+                      </div>
                     )}
                     {loan.status === 'approved' && (
                       <div className="flex flex-col items-center gap-1">
@@ -244,6 +287,7 @@ function AdminLoans() {
                     )}
                     {loan.status === 'disbursed' && <span className="text-green-600 text-sm">✅ Disbursed</span>}
                     {loan.status === 'repaid' && <span className="text-gray-500 text-sm">✔️ Repaid</span>}
+                    {loan.status === 'rejected' && <span className="text-red-500 text-sm">❌ Rejected</span>}
                   </td>
                 </tr>
               ))}
