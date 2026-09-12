@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 const NAV_GROUPS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', to: null }],
+    items: [{ label: 'Dashboard', to: '/admin/dashboard' }],
   },
   {
     label: 'Loans',

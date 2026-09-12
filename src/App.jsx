@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import AdminLoans from './pages/AdminLoans';
 import AuditTrail from './pages/AuditTrail';
+import Dashboard from './pages/Dashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -25,7 +26,12 @@ function AppRoutes() {
           <AuditTrail />
         </ProtectedRoute>
       } />
-      <Route path="/" element={<Navigate to="/admin" />} />
+      <Route path="/admin/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={<Navigate to="/admin/dashboard" />} />
     </Routes>
   );
 }
