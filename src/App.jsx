@@ -10,6 +10,8 @@ import RepaymentHistory from './pages/RepaymentHistory';
 import ContributionLogs from './pages/ContributionLogs';
 import StaffManagement from './pages/StaffManagement';
 import FinancialReports from './pages/FinancialReports';
+import DataImport from './pages/DataImport';
+import SystemHealth from './pages/SystemHealth';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -65,6 +67,16 @@ function AppRoutes() {
       <Route path="/admin/reports" element={
         <ProtectedRoute>
           <FinancialReports />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/data-import" element={
+        <ProtectedRoute>
+          <DataImport />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/system-health" element={
+        <ProtectedRoute>
+          <SystemHealth />
         </ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/admin/dashboard" />} />

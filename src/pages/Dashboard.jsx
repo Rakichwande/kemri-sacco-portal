@@ -205,20 +205,20 @@ function Dashboard() {
                 }}>
                   View Audit Trail <span>→</span>
                 </Link>
-                <div style={{
+                <Link to="/admin/members" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,
-                  color: 'rgba(31,36,33,0.35)', fontSize: '0.88rem',
+                  textDecoration: 'none', color: 'var(--color-ink)', fontSize: '0.88rem',
                 }}>
-                  New Member Entry <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', textTransform: 'uppercase' }}>Soon</span>
-                </div>
-                <div style={{
+                  New Member Entry <span>→</span>
+                </Link>
+                <Link to="/admin/reports" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,
-                  color: 'rgba(31,36,33,0.35)', fontSize: '0.88rem',
+                  textDecoration: 'none', color: 'var(--color-ink)', fontSize: '0.88rem',
                 }}>
-                  Generate Monthly Report <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', textTransform: 'uppercase' }}>Soon</span>
-                </div>
+                  Generate Monthly Report <span>→</span>
+                </Link>
               </div>
             </div>
           </div>

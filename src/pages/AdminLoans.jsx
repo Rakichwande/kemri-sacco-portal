@@ -12,12 +12,83 @@ const STATS_CONFIG = [
   { key: 'rejected', label: 'Rejected', accent: 'var(--color-error)' },
 ];
 
+const TABS = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'disbursed', label: 'Disbursed' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'all', label: 'All' },
+];
+
+function formatKES(amount) {
+  return `KES ${Number(amount).toLocaleString()}`;
+}
+
+// Read-only detail panel, opened via the "Review" action. Approve/Reject/
+// Disburse stay as row-level actions on the table - this is purely for
+// seeing the full application before acting on it.
+function ReviewModal({ loan, onClose }) {
+  if (!loan) return null;
+  const row = (label, value) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
+      <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{label}</span>
+      <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{value}</span>
+    </div>
+  );
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 6, width: 420, maxWidth: '90vw', padding: 24 }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)' }}>
+            Loan #{loan.id}
+          </div>
+          <span className={`admin-badge admin-badge--${loan.status}`}>{loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}</span>
+        </div>
+        <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16 }}>
+          {loan.member_reference}
+        </div>
+
+        {row('Member', loan.member_name || loan.member_id)}
+        {row('Phone', loan.phone_number || 'N/A')}
+        {row('Purpose', loan.purpose || '—')}
+        {row('Principal', formatKES(loan.principal))}
+        {row('Interest rate', `${loan.interest_rate}%`)}
+        {row('Term', `${loan.tenure_months} months`)}
+        {row('Total repayment', formatKES(loan.total_repayment))}
+        {row('Monthly installment', formatKES(loan.monthly_installment))}
+        {row('Outstanding balance', formatKES(loan.outstanding_balance))}
+        {row('Applied', new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))}
+        {loan.admin_notes && row('Admin notes', loan.admin_notes)}
+
+        <button
+          onClick={onClose}
+          className="admin-btn admin-btn--approve"
+          style={{ marginTop: 16, width: '100%' }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminLoans() {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, disbursed: 0, repaid: 0, rejected: 0 });
   const [receipt, setReceipt] = useState({});
+  const [reviewing, setReviewing] = useState(null);
+  const [activeTab, setActiveTab] = useState('pending');
 
   const getToken = () => localStorage.getItem('token');
 
@@ -109,9 +180,10 @@ function AdminLoans() {
     }
   };
 
-  const formatKES = (amount) => `KES ${Number(amount).toLocaleString()}`;
-
   const badgeClass = (status) => `admin-badge admin-badge--${status}`;
+
+  const visibleLoans = activeTab === 'all' ? loans : loans.filter((l) => l.status === activeTab);
+  const tabCount = (key) => key === 'all' ? stats.total : stats[key];
 
   return (
     <AdminLayout
@@ -143,66 +215,98 @@ function AdminLoans() {
           No loans found. Apply for a test loan via USSD (Option 4) to see it here.
         </div>
       ) : (
-        <div className="admin-table-card">
+        <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: '8px 16px', borderRadius: 4, fontSize: '0.85rem', fontWeight: 500,
+                  cursor: 'pointer', border: '1px solid var(--color-line)',
+                  background: activeTab === tab.key ? 'var(--color-forest-deep)' : '#fff',
+                  color: activeTab === tab.key ? '#fff' : 'var(--color-ink)',
+                }}
+              >
+                {tab.label} ({tabCount(tab.key)})
+              </button>
+            ))}
+          </div>
+
+          {visibleLoans.length === 0 ? (
+            <div className="admin-table-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(31,36,33,0.5)' }}>
+              No loans in this category.
+            </div>
+          ) : (
+          <div className="admin-table-card">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Loan ID</th>
                 <th>Member</th>
-                <th>Phone</th>
+                <th>Reference</th>
+                <th>Purpose</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
-                <th style={{ textAlign: 'right' }}>Total</th>
-                <th style={{ textAlign: 'right' }}>Monthly</th>
+                <th>Applied</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loans.map((loan) => (
+              {visibleLoans.map((loan) => (
                 <tr key={loan.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>#{loan.id}</td>
                   <td style={{ fontWeight: 500 }}>{loan.member_name || loan.member_id}</td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>{loan.phone_number || 'N/A'}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{loan.member_reference}</td>
+                  <td>{loan.purpose || '—'}</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(loan.principal)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(loan.total_repayment)}</td>
-                  <td style={{ textAlign: 'right' }}>{formatKES(loan.monthly_installment)}</td>
+                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
+                    {new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                  </td>
                   <td>
                     <span className={badgeClass(loan.status)}>
                       {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
                     </span>
                   </td>
                   <td>
-                    {loan.status === 'pending' && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="admin-btn admin-btn--approve" onClick={() => handleApprove(loan.id)}>Approve</button>
-                        <button className="admin-btn admin-btn--reject" onClick={() => handleReject(loan.id)}>Reject</button>
-                      </div>
-                    )}
-                    {loan.status === 'approved' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 160 }}>
-                        <input
-                          type="text"
-                          placeholder="M-Pesa Receipt"
-                          value={receipt[loan.id] || ''}
-                          onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
-                          style={{
-                            padding: '6px 8px', border: '1px solid var(--color-line)',
-                            borderRadius: 4, fontSize: '0.82rem',
-                          }}
-                        />
-                        <button className="admin-btn admin-btn--disburse" onClick={() => handleDisburse(loan.id)}>Disburse</button>
-                      </div>
-                    )}
-                    {loan.status === 'disbursed' && <span style={{ color: 'var(--color-forest)', fontSize: '0.85rem' }}>Disbursed</span>}
-                    {loan.status === 'repaid' && <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>Repaid</span>}
-                    {loan.status === 'rejected' && <span style={{ color: 'var(--color-error)', fontSize: '0.85rem' }}>Rejected</span>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+                      <button
+                        onClick={() => setReviewing(loan)}
+                        style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                      >
+                        Review
+                      </button>
+                      {loan.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="admin-btn admin-btn--approve" onClick={() => handleApprove(loan.id)}>Approve</button>
+                          <button className="admin-btn admin-btn--reject" onClick={() => handleReject(loan.id)}>Reject</button>
+                        </div>
+                      )}
+                      {loan.status === 'approved' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 160 }}>
+                          <input
+                            type="text"
+                            placeholder="M-Pesa Receipt"
+                            value={receipt[loan.id] || ''}
+                            onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
+                            style={{
+                              padding: '6px 8px', border: '1px solid var(--color-line)',
+                              borderRadius: 4, fontSize: '0.82rem',
+                            }}
+                          />
+                          <button className="admin-btn admin-btn--disburse" onClick={() => handleDisburse(loan.id)}>Disburse</button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+          )}
+        </>
       )}
+
+      <ReviewModal loan={reviewing} onClose={() => setReviewing(null)} />
     </AdminLayout>
   );
 }

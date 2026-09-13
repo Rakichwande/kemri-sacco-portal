@@ -7,6 +7,7 @@ const CATEGORIES = [
   { value: 'all', label: 'All categories' },
   { value: 'loan_decision', label: 'Loan decisions' },
   { value: 'member_edit', label: 'Member edits' },
+  { value: 'member_registration', label: 'Member registration' },
   { value: 'staff_management', label: 'Staff management' },
 ];
 
@@ -59,6 +60,7 @@ function AuditTrail() {
     const map = {
       loan_decision: { background: '#d6e4f0', color: '#1c4a75' },
       member_edit: { background: 'var(--color-gold-soft)', color: '#7a5a10' },
+      member_registration: { background: 'var(--color-sage)', color: 'var(--color-forest-deep)' },
       staff_management: { background: '#e3d9f5', color: '#55308a' },
     };
     return map[cat] || { background: 'var(--color-sage)', color: 'var(--color-forest-deep)' };
@@ -92,6 +94,12 @@ function AuditTrail() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
+        <button
+          onClick={() => { setSearch(''); setCategory('all'); }}
+          style={{ padding: '9px 16px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          Reset
+        </button>
       </div>
 
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}

@@ -7,11 +7,127 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
+const EDITABLE_FIELDS = [
+  { key: 'full_name', label: 'Full name', type: 'text' },
+  { key: 'nationality', label: 'Nationality', type: 'text' },
+  { key: 'age', label: 'Age', type: 'number' },
+  { key: 'employer', label: 'Employer', type: 'text' },
+  { key: 'scheme', label: 'Scheme', type: 'text' },
+  { key: 'status', label: 'Status', type: 'select', options: ['pending', 'active', 'inactive'] },
+];
+const CREATE_FIELDS = [
+  { key: 'full_name', label: 'Full name', type: 'text', required: true },
+  { key: 'id_number', label: 'National ID', type: 'text', required: true },
+  { key: 'phone_number', label: 'Phone number', type: 'text', required: true },
+  { key: 'nationality', label: 'Nationality', type: 'text' },
+  { key: 'age', label: 'Age', type: 'number' },
+  { key: 'employer', label: 'Employer', type: 'text' },
+];
+
+const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' };
+
+function MemberFormModal({ mode, member, onClose, onSaved }) {
+  const isCreate = mode === 'create';
+  const isView = mode === 'view';
+  const fields = isCreate ? CREATE_FIELDS : EDITABLE_FIELDS;
+  const [form, setForm] = useState(() => {
+    const initial = {};
+    fields.forEach((f) => { initial[f.key] = member?.[f.key] ?? ''; });
+    return initial;
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const url = isCreate ? `${API_BASE}/api/members/admin` : `${API_BASE}/api/members/${member.id}`;
+      const res = await fetch(url, {
+        method: isCreate ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || (err.errors && err.errors.join(', ')) || 'Save failed');
+      }
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 440, maxWidth: '90vw', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 4 }}>
+          {isCreate ? 'New Member' : isView ? member.full_name : `Edit ${member.full_name}`}
+        </div>
+        {!isCreate && <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>{member.reference}</div>}
+        {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
+
+        {isView ? (
+          <div>
+            {[...EDITABLE_FIELDS, { key: 'phone_number', label: 'Phone' }, { key: 'id_number', label: 'National ID' }].map((f) => (
+              <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
+                <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{f.label}</span>
+                <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{member[f.key] || '—'}</span>
+              </div>
+            ))}
+            <button className="admin-btn admin-btn--approve" style={{ marginTop: 16, width: '100%' }} onClick={onClose}>Close</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {fields.map((f) => (
+              <div key={f.key} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  {f.label}{f.required && ' *'}
+                </div>
+                {f.type === 'select' ? (
+                  <select
+                    value={form[f.key]}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    style={{ ...inputStyle, background: '#fff' }}
+                  >
+                    {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type={f.type}
+                    required={f.required}
+                    value={form[f.key]}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    style={inputStyle}
+                  />
+                )}
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting} className="admin-btn admin-btn--approve" style={{ flex: 1 }}>
+                {submitting ? 'Saving…' : isCreate ? 'Create Member' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MemberDirectory() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(null); // { mode, member }
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -41,6 +157,7 @@ function MemberDirectory() {
     const q = search.toLowerCase();
     return (
       m.full_name?.toLowerCase().includes(q) ||
+      m.reference?.toLowerCase().includes(q) ||
       m.phone_number?.toLowerCase().includes(q) ||
       m.id_number?.toLowerCase().includes(q) ||
       m.employer?.toLowerCase().includes(q)
@@ -52,20 +169,36 @@ function MemberDirectory() {
     return <span className={`admin-badge admin-badge--${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
   };
 
+  const statusBadge = (status) => {
+    const colors = {
+      active: { background: 'var(--color-sage)', color: 'var(--color-forest-deep)' },
+      inactive: { background: '#e5e2da', color: 'rgba(31,36,33,0.55)' },
+      pending: { background: 'var(--color-gold-soft)', color: '#7a5a10' },
+    };
+    return <span className="admin-badge" style={colors[status] || colors.pending}>{status || 'pending'}</span>;
+  };
+
+  const handleSaved = () => {
+    setModal(null);
+    fetchMembers();
+  };
+
   return (
     <AdminLayout title="Member Directory" lede={`${members.length} members · searchable register of all SACCO members.`}>
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
-      <input
-        type="text"
-        placeholder="Search name, phone, National ID, employer…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)',
-          borderRadius: 4, fontSize: '0.88rem', marginBottom: 20, fontFamily: 'var(--font-body)',
-        }}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+        <input
+          type="text"
+          placeholder="Search name, reference, phone, ID, employer…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-body)' }}
+        />
+        <button className="admin-btn admin-btn--approve" onClick={() => setModal({ mode: 'create', member: null })}>
+          + New Member
+        </button>
+      </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
@@ -79,31 +212,51 @@ function MemberDirectory() {
             <thead>
               <tr>
                 <th>Member</th>
+                <th>Reference</th>
                 <th>Phone</th>
                 <th>National ID</th>
                 <th>Employer</th>
-                <th>Joined</th>
+                <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Savings</th>
                 <th>Loan</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((m) => (
                 <tr key={m.id}>
                   <td style={{ fontWeight: 500 }}>{m.full_name}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{m.reference}</td>
                   <td style={{ color: 'rgba(31,36,33,0.6)' }}>{m.phone_number}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{m.id_number}</td>
                   <td>{m.employer || '—'}</td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
-                    {new Date(m.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </td>
+                  <td>{statusBadge(m.status)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(m.savings_balance)}</td>
                   <td>{loanBadge(m.current_loan_status)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => setModal({ mode: 'view', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                        View
+                      </button>
+                      <button onClick={() => setModal({ mode: 'edit', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                        Edit
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {modal && (
+        <MemberFormModal
+          mode={modal.mode}
+          member={modal.member}
+          onClose={() => setModal(null)}
+          onSaved={handleSaved}
+        />
       )}
     </AdminLayout>
   );

@@ -12,6 +12,8 @@ function DisbursementLog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchLoans = async () => {
     setLoading(true);
@@ -40,10 +42,21 @@ function DisbursementLog() {
   useEffect(() => { fetchLoans(); }, []);
 
   const filtered = loans.filter((l) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return l.member_name?.toLowerCase().includes(q) || String(l.id).includes(q);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matches = l.member_name?.toLowerCase().includes(q) || String(l.id).includes(q) || l.member_reference?.toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    if (dateFrom && (!l.disbursed_at || new Date(l.disbursed_at) < new Date(dateFrom))) return false;
+    if (dateTo && (!l.disbursed_at || new Date(l.disbursed_at) > new Date(dateTo + 'T23:59:59'))) return false;
+    return true;
   });
+
+  const handleReset = () => {
+    setSearch('');
+    setDateFrom('');
+    setDateTo('');
+  };
 
   const totalDisbursed = filtered.reduce((sum, l) => sum + Number(l.principal), 0);
   const avgPerLoan = filtered.length ? totalDisbursed / filtered.length : 0;
@@ -67,16 +80,44 @@ function DisbursementLog() {
         </div>
       </div>
 
-      <input
-        type="text"
-        placeholder="Search member or loan ID…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)',
-          borderRadius: 4, fontSize: '0.88rem', marginBottom: 20, fontFamily: 'var(--font-body)',
-        }}
-      />
+      <div className="admin-table-card" style={{ padding: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Search Member / Reference</div>
+            <input
+              type="text"
+              placeholder="Member name or reference…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-body)' }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Disbursed From</div>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Disbursed To</div>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
+            />
+          </div>
+          <button
+            onClick={handleReset}
+            style={{ padding: '9px 16px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
@@ -91,6 +132,7 @@ function DisbursementLog() {
               <tr>
                 <th>Loan ID</th>
                 <th>Member</th>
+                <th>Reference</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Term</th>
                 <th style={{ textAlign: 'right' }}>Monthly</th>
@@ -102,6 +144,7 @@ function DisbursementLog() {
                 <tr key={l.id}>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>#{l.id}</td>
                   <td style={{ fontWeight: 500 }}>{l.member_name}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{l.member_reference}</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.principal)}</td>
                   <td>{l.tenure_months} mo</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.monthly_installment)}</td>
