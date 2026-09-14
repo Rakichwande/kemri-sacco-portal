@@ -37,6 +37,17 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await api.post('/api/auth/login', { username, password });
+    if (res.data.otpRequired) {
+      return res.data; // { otpRequired: true, otpToken, message } - caller shows the OTP screen
+    }
+    const { token, user } = res.data;
+    localStorage.setItem('token', token);
+    setUser(user);
+    return user;
+  };
+
+  const verifyOtp = async (otpToken, code) => {
+    const res = await api.post('/api/auth/verify-otp', { otpToken, code });
     const { token, user } = res.data;
     localStorage.setItem('token', token);
     setUser(user);
@@ -48,7 +59,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, loading, login, logout, api };
+  const value = { user, loading, login, verifyOtp, logout, api };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
