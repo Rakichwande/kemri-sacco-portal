@@ -4,14 +4,117 @@ import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+function InviteModal({ onClose, onSent }) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('staff');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null); // { inviteLink, emailSent, emailReason }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/api/auth/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ email, role }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to send invite');
+      }
+      const data = await res.json();
+      setResult(data);
+      onSent();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(result.inviteLink);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 420, maxWidth: '90vw', padding: 24 }}>
+        {!result ? (
+          <>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 4 }}>
+              Invite Staff Member
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'rgba(31,36,33,0.6)', marginBottom: 16 }}>
+              Send an invitation email. The recipient will be able to sign in to this admin console.
+            </div>
+            {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Email address</div>
+                <input
+                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="colleague@kemri.go.ke"
+                  style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.9rem' }}
+                />
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Role</div>
+                <select
+                  value={role} onChange={(e) => setRole(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.9rem', background: '#fff' }}
+                >
+                  <option value="staff">Staff (view-only)</option>
+                  <option value="admin">Admin (full access)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={onClose} style={{ padding: '9px 18px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="admin-btn admin-btn--approve">
+                  {submitting ? 'Sending…' : 'Send Invitation'}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 12 }}>
+              Invite Created
+            </div>
+            {result.emailSent ? (
+              <div style={{ padding: '10px 14px', background: 'var(--color-sage)', color: 'var(--color-forest-deep)', borderRadius: 4, fontSize: '0.88rem', marginBottom: 16 }}>
+                Invitation email sent to {email}.
+              </div>
+            ) : (
+              <div style={{ padding: '10px 14px', background: 'var(--color-gold-soft)', color: '#7a5a10', borderRadius: 4, fontSize: '0.85rem', marginBottom: 16 }}>
+                Email couldn't be sent ({result.emailReason || 'not configured yet'}). Share this link with {email} directly instead:
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              <input readOnly value={result.inviteLink} style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.82rem', fontFamily: 'var(--font-mono)' }} />
+              <button onClick={copyLink} style={{ padding: '8px 14px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
+                Copy
+              </button>
+            </div>
+            <button onClick={onClose} className="admin-btn admin-btn--approve" style={{ width: '100%' }}>Done</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StaffManagement() {
   const { user: currentUser } = useAuth();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '', full_name: '', role: 'staff' });
-  const [submitting, setSubmitting] = useState(false);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -37,29 +140,6 @@ function StaffManagement() {
 
   useEffect(() => { fetchStaff(); }, []);
 
-  const handleInvite = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to create account');
-      }
-      setShowInvite(false);
-      setForm({ username: '', password: '', full_name: '', role: 'staff' });
-      fetchStaff();
-    } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleRoleChange = async (id, role) => {
     try {
       const res = await fetch(`${API_BASE}/api/auth/users/${id}/role`, {
@@ -74,7 +154,7 @@ function StaffManagement() {
       fetchStaff();
     } catch (err) {
       alert('Error: ' + err.message);
-      fetchStaff(); // revert the dropdown to the real value
+      fetchStaff();
     }
   };
 
@@ -107,32 +187,10 @@ function StaffManagement() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(!showInvite)}>
-          {showInvite ? 'Cancel' : '+ Invite Staff'}
+        <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(true)}>
+          + Invite Staff
         </button>
       </div>
-
-      {showInvite && (
-        <form onSubmit={handleInvite} className="admin-table-card" style={{ padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          <input required placeholder="Full name" value={form.full_name}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-            style={{ padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4 }} />
-          <input required placeholder="Username" value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
-            style={{ padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4 }} />
-          <input required type="password" placeholder="Temporary password (min 8 chars)" value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            style={{ padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4 }} />
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
-            style={{ padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4 }}>
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button type="submit" disabled={submitting} className="admin-btn admin-btn--approve" style={{ gridColumn: 'span 2' }}>
-            {submitting ? 'Creating…' : 'Create Account'}
-          </button>
-        </form>
-      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
@@ -143,6 +201,7 @@ function StaffManagement() {
               <tr>
                 <th>Name</th>
                 <th>Username</th>
+                <th>Phone</th>
                 <th>Role</th>
                 <th>Added</th>
                 <th>Actions</th>
@@ -155,6 +214,7 @@ function StaffManagement() {
                     {s.full_name} {s.id === currentUser?.id && <span style={{ color: 'rgba(31,36,33,0.45)', fontWeight: 400 }}>(you)</span>}
                   </td>
                   <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.username}</td>
+                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.phone || '—'}</td>
                   <td>
                     <select
                       value={s.role}
@@ -181,6 +241,10 @@ function StaffManagement() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showInvite && (
+        <InviteModal onClose={() => setShowInvite(false)} onSent={fetchStaff} />
       )}
     </AdminLayout>
   );

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Small hand-drawn line icons - no icon library is installed, and adding
 // one just for a sidebar isn't worth the dependency. currentColor lets each
@@ -63,12 +65,126 @@ const NAV_GROUPS = [
   },
 ];
 
+function NotificationSettingsModal({ onClose }) {
+  const [prefs, setPrefs] = useState({ notify_sms: true, notify_email: false, phone: '', email: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => {
+        const u = data.user || {};
+        setPrefs({
+          notify_sms: u.notify_sms ?? true,
+          notify_email: u.notify_email ?? false,
+          phone: u.phone || '',
+          email: u.email || '',
+        });
+      })
+      .catch(() => setError('Could not load your current settings'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/api/auth/me/notifications`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(prefs),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 380, maxWidth: '90vw', padding: 24 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 16 }}>
+          Notification Settings
+        </div>
+        {loading ? (
+          <div style={{ color: 'rgba(31,36,33,0.5)', fontSize: '0.88rem' }}>Loading…</div>
+        ) : (
+          <form onSubmit={handleSave}>
+            {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Phone</div>
+              <input value={prefs.phone} onChange={(e) => setPrefs({ ...prefs, phone: e.target.value })}
+                placeholder="0712345678"
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Email</div>
+              <input value={prefs.email} onChange={(e) => setPrefs({ ...prefs, email: e.target.value })}
+                placeholder="you@kemri.go.ke"
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' }} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', marginBottom: 8 }}>
+              <input type="checkbox" checked={prefs.notify_sms} onChange={(e) => setPrefs({ ...prefs, notify_sms: e.target.checked })} />
+              Notify me via SMS
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', marginBottom: 18 }}>
+              <input type="checkbox" checked={prefs.notify_email} onChange={(e) => setPrefs({ ...prefs, notify_email: e.target.checked })} />
+              Notify me via Email
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={saving} className="admin-btn admin-btn--approve" style={{ flex: 1 }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminLayout({ title, lede, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [pendingCount, setPendingCount] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
+
+  // Polls for pending loan applications so the count is visible on every
+  // page, not just the Dashboard - a real-time push would need websockets,
+  // which this stack doesn't have; a 30s poll is a reasonable stand-in.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/api/loans/admin/pending`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setPendingCount(data.length);
+      } catch (err) {
+        // Silent - this is a background convenience indicator, not critical path
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   return (
     <div className="admin-shell">
@@ -109,11 +225,17 @@ function AdminLayout({ title, lede, children }) {
           </div>
         ))}
 
-        <div className="admin-sidebar__footer">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="admin-sidebar__footer"
+          style={{ border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+        >
           <div className="admin-sidebar__footer-name">{user?.full_name || 'Admin'}</div>
-          <div className="admin-sidebar__footer-role">{user?.role || 'admin'}</div>
-        </div>
+          <div className="admin-sidebar__footer-role">{user?.role || 'admin'} · Notification settings</div>
+        </button>
       </aside>
+
+      {showSettings && <NotificationSettingsModal onClose={() => setShowSettings(false)} />}
 
       <div className="admin-main">
         <div className="admin-topbar">
@@ -123,6 +245,16 @@ function AdminLayout({ title, lede, children }) {
             <span>Systems operational</span>
           </div>
           <div className="admin-topbar__actions">
+            {pendingCount > 0 && (
+              <Link to="/admin" style={{
+                display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                background: 'var(--color-gold-soft)', color: '#7a5a10', padding: '6px 12px',
+                borderRadius: 999, fontSize: '0.82rem', fontWeight: 600,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+                {pendingCount} pending
+              </Link>
+            )}
             <button className="admin-topbar__logout" onClick={logout}>Logout</button>
           </div>
         </div>

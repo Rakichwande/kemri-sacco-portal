@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import AcceptInvite from './pages/AcceptInvite';
 import AdminLoans from './pages/AdminLoans';
 import AuditTrail from './pages/AuditTrail';
 import Dashboard from './pages/Dashboard';
@@ -24,6 +25,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/accept-invite/:token" element={<AcceptInvite />} />
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminLoans />
