@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const inputStyle = {
+  width: '100%', padding: '11px 14px', border: '1px solid var(--color-line)',
+  borderRadius: 8, fontSize: '0.92rem', fontFamily: 'var(--font-body)', marginBottom: 12,
+};
+const buttonStyle = {
+  width: '100%', padding: '11px', background: 'var(--color-forest)', color: '#fff',
+  border: 'none', borderRadius: 8, fontSize: '0.92rem', fontWeight: 600, cursor: 'pointer',
+};
 
 function AcceptInvite() {
   const { token } = useParams();
@@ -65,79 +75,68 @@ function AcceptInvite() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">KEMRI SACCO</h1>
-          <p className="text-gray-500 text-sm mt-1">Accept Staff Invitation</p>
+    <AuthLayout eyebrow="Staff Invitation" title="KEMRI SACCO" subtitle="Complete your account setup">
+      {loadingInvite ? (
+        <p style={{ textAlign: 'center', color: 'rgba(31,36,33,0.5)', fontSize: '0.9rem' }}>Checking invite…</p>
+      ) : inviteError ? (
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: 'var(--color-error)', fontSize: '0.9rem', marginBottom: 16 }}>{inviteError}</p>
+          <Link to="/login" style={{ fontSize: '0.85rem', color: 'var(--color-forest)' }}>Go to login</Link>
         </div>
-
-        {loadingInvite ? (
-          <p className="text-center text-gray-500">Checking invite…</p>
-        ) : inviteError ? (
-          <div className="text-center">
-            <p className="text-red-600 mb-4">{inviteError}</p>
-            <Link to="/login" className="text-green-700 underline text-sm">Go to login</Link>
-          </div>
-        ) : success ? (
-          <div className="text-center">
-            <p className="text-green-700 font-medium mb-2">Account created!</p>
-            <p className="text-gray-500 text-sm">Redirecting you to login…</p>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-gray-600 mb-4 text-center">
-              You've been invited as <strong>{invite.role}</strong> for <strong>{invite.email}</strong>.
-            </p>
-            {submitError && (
-              <div className="bg-red-50 text-red-600 text-sm rounded p-3 mb-4">{submitError}</div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                required placeholder="Full name" value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <input
-                required placeholder="Choose a username" value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Phone (optional, for SMS notifications)" value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <input
-                required type="password" placeholder="Password (min 8 characters)" value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <input
-                required type="password" placeholder="Confirm password" value={form.confirmPassword}
-                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <div className="text-xs text-gray-500 pt-1">How should we notify you of activity (new members, loan applications, repayments, deposits)?</div>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" checked={form.notify_sms} onChange={(e) => setForm({ ...form, notify_sms: e.target.checked })} />
-                SMS (requires the phone number above)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" checked={form.notify_email} onChange={(e) => setForm({ ...form, notify_email: e.target.checked })} />
-                Email ({invite.email})
-              </label>
-              <button
-                type="submit" disabled={submitting}
-                className="w-full bg-green-800 text-white rounded py-2 text-sm font-medium hover:bg-green-900"
-              >
-                {submitting ? 'Creating account…' : 'Create Account'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+      ) : success ? (
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: 'var(--color-forest)', fontWeight: 600, marginBottom: 6 }}>Account created!</p>
+          <p style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>Redirecting you to login…</p>
+        </div>
+      ) : (
+        <>
+          <p style={{ fontSize: '0.85rem', color: 'rgba(31,36,33,0.6)', textAlign: 'center', marginBottom: 18 }}>
+            You've been invited as <strong>{invite.role}</strong> for <strong>{invite.email}</strong>.
+          </p>
+          {submitError && (
+            <div style={{ background: '#f5d9d4', color: 'var(--color-error)', fontSize: '0.85rem', borderRadius: 6, padding: '10px 12px', marginBottom: 14 }}>
+              {submitError}
+            </div>
+          )}
+          <form onSubmit={handleSubmit}>
+            <input
+              required placeholder="Full name" value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })} style={inputStyle}
+            />
+            <input
+              required placeholder="Choose a username" value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })} style={inputStyle}
+            />
+            <input
+              placeholder="Phone (optional, for SMS notifications)" value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })} style={inputStyle}
+            />
+            <input
+              required type="password" placeholder="Password (min 8 characters)" value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })} style={inputStyle}
+            />
+            <input
+              required type="password" placeholder="Confirm password" value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} style={inputStyle}
+            />
+            <div style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.5)', margin: '4px 0 8px' }}>
+              How should we notify you of activity?
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', marginBottom: 6 }}>
+              <input type="checkbox" checked={form.notify_sms} onChange={(e) => setForm({ ...form, notify_sms: e.target.checked })} />
+              SMS (requires the phone number above)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', marginBottom: 18 }}>
+              <input type="checkbox" checked={form.notify_email} onChange={(e) => setForm({ ...form, notify_email: e.target.checked })} />
+              Email ({invite.email})
+            </label>
+            <button type="submit" disabled={submitting} style={buttonStyle}>
+              {submitting ? 'Creating account…' : 'Create Account'}
+            </button>
+          </form>
+        </>
+      )}
+    </AuthLayout>
   );
 }
 

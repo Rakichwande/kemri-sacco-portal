@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const inputStyle = {
+  width: '100%', padding: '11px 14px', border: '1px solid var(--color-line)',
+  borderRadius: 8, fontSize: '0.92rem', fontFamily: 'var(--font-body)', marginBottom: 14,
+};
+const buttonStyle = {
+  width: '100%', padding: '11px', background: 'var(--color-forest)', color: '#fff',
+  border: 'none', borderRadius: 8, fontSize: '0.92rem', fontWeight: 600, cursor: 'pointer',
+};
 
 function ForgotPassword() {
   const [identifier, setIdentifier] = useState('');
@@ -27,40 +37,27 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">KEMRI SACCO</h1>
-          <p className="text-gray-500 text-sm mt-1">Reset your password</p>
+    <AuthLayout eyebrow="Admin Console" title="Forgot Password" subtitle="We'll send you a link to reset it">
+      {message ? (
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: '0.9rem', color: 'rgba(31,36,33,0.7)', marginBottom: 20 }}>{message}</p>
+          <Link to="/login" style={{ fontSize: '0.85rem', color: 'var(--color-forest)' }}>Back to login</Link>
         </div>
-
-        {message ? (
-          <div className="text-center">
-            <p className="text-sm text-gray-700 mb-4">{message}</p>
-            <Link to="/login" className="text-blue-700 underline text-sm">Back to login</Link>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text" required placeholder="Username or Email" value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)} style={inputStyle}
+          />
+          <button type="submit" disabled={submitting} style={buttonStyle}>
+            {submitting ? 'Sending…' : 'Reset Password'}
+          </button>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <Link to="/login" style={{ fontSize: '0.85rem', color: 'rgba(31,36,33,0.55)' }}>← Back to Login</Link>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
-              <input
-                type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <button
-              type="submit" disabled={submitting}
-              className="w-full bg-blue-700 text-white rounded py-2 text-sm font-medium hover:bg-blue-800"
-            >
-              {submitting ? 'Sending…' : 'Send Reset Link'}
-            </button>
-            <div className="text-center">
-              <Link to="/login" className="text-sm text-gray-500 underline">Back to login</Link>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+        </form>
+      )}
+    </AuthLayout>
   );
 }
 
