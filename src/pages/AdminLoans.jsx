@@ -134,7 +134,10 @@ function AdminLoans() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ adminNotes: 'Approved via Admin' }),
       });
-      if (!res.ok) throw new Error('Failed to approve');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to approve');
+      }
       fetchLoans();
     } catch (err) {
       alert('Error: ' + err.message);
@@ -172,7 +175,10 @@ function AdminLoans() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ mpesaReceipt: mpesaReceipt || 'Manual Transfer' }),
       });
-      if (!res.ok) throw new Error('Failed to disburse');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to disburse');
+      }
       setReceipt({ ...receipt, [loanId]: '' });
       fetchLoans();
     } catch (err) {
