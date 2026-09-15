@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -47,7 +48,7 @@ function FinancialReports() {
       setSummary(await res.json());
     } catch (err) {
       console.error('Fetch report error:', err);
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ function FinancialReports() {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
+        <LoadingState />
       ) : summary ? (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>

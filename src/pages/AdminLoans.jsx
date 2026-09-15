@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -117,7 +118,7 @@ function AdminLoans() {
       });
     } catch (err) {
       console.error('Fetch loans error:', err);
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -215,7 +216,7 @@ function AdminLoans() {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
+        <LoadingState />
       ) : loans.length === 0 ? (
         <div className="admin-table-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(31,36,33,0.5)' }}>
           No loans found. Apply for a test loan via USSD (Option 4) to see it here.

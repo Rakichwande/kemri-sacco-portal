@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -36,7 +37,7 @@ function AcceptInvite() {
         return res.json();
       })
       .then(setInvite)
-      .catch((err) => setInviteError(err.message))
+      .catch((err) => setInviteError(friendlyErrorMessage(err)))
       .finally(() => setLoadingInvite(false));
   }, [token]);
 
@@ -68,7 +69,7 @@ function AcceptInvite() {
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2500);
     } catch (err) {
-      setSubmitError(err.message);
+      setSubmitError(friendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -77,7 +78,7 @@ function AcceptInvite() {
   return (
     <AuthLayout eyebrow="Staff Invitation" title="KEMRI SACCO" subtitle="Complete your account setup">
       {loadingInvite ? (
-        <p style={{ textAlign: 'center', color: 'rgba(31,36,33,0.5)', fontSize: '0.9rem' }}>Checking invite…</p>
+        <LoadingState label="Checking invite…" />
       ) : inviteError ? (
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: 'var(--color-error)', fontSize: '0.9rem', marginBottom: 16 }}>{inviteError}</p>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -30,7 +31,7 @@ function InviteModal({ onClose, onSent }) {
       setResult(data);
       onSent();
     } catch (err) {
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +133,7 @@ function StaffManagement() {
       setStaff(await res.json());
     } catch (err) {
       console.error('Fetch staff error:', err);
-      setError(err.message);
+      setError(friendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -193,7 +194,7 @@ function StaffManagement() {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
+        <LoadingState />
       ) : (
         <div className="admin-table-card">
           <table className="admin-table">

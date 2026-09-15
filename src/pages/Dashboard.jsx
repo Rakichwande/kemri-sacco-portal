@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -90,7 +91,7 @@ function Dashboard() {
         setSummary(await res.json());
       } catch (err) {
         console.error('Dashboard fetch error:', err);
-        setError(err.message);
+        setError(friendlyErrorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -103,7 +104,7 @@ function Dashboard() {
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(31,36,33,0.5)' }}>Loading…</div>
+        <LoadingState />
       ) : summary ? (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>

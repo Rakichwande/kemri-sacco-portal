@@ -271,6 +271,19 @@ main {
   }
 }
 
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+
+.admin-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-line);
+  border-top-color: var(--color-forest);
+  border-radius: 50%;
+  animation: admin-spin 0.7s linear infinite;
+}
+
 /* ============================================================
    Admin console shell — sidebar + topbar layout, built on the
    same tokens as the passbook theme above, for the staff/admin
