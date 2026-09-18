@@ -19,6 +19,7 @@ const icons = {
   health: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
   staff: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   audit: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>,
+  settings: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
 };
 
 // Nav structure mirrors the target design. `to: null` means the page
@@ -63,102 +64,18 @@ const NAV_GROUPS = [
       { label: 'Audit Trail', to: '/admin/audit-trail', icon: icons.audit },
     ],
   },
+  {
+    label: 'Account',
+    items: [
+      { label: 'Settings', to: '/admin/settings', icon: icons.settings },
+    ],
+  },
 ];
-
-function NotificationSettingsModal({ onClose }) {
-  const [prefs, setPrefs] = useState({ notify_sms: true, notify_email: false, phone: '', email: '' });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
-      .then((res) => res.json())
-      .then((data) => {
-        const u = data.user || {};
-        setPrefs({
-          notify_sms: u.notify_sms ?? true,
-          notify_email: u.notify_email ?? false,
-          phone: u.phone || '',
-          email: u.email || '',
-        });
-      })
-      .catch(() => setError('Could not load your current settings'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/auth/me/notifications`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(prefs),
-      });
-      if (!res.ok) throw new Error('Failed to save');
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 380, maxWidth: '90vw', padding: 24 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 16 }}>
-          Notification Settings
-        </div>
-        {loading ? (
-          <div style={{ color: 'rgba(31,36,33,0.5)', fontSize: '0.88rem' }}>Loading…</div>
-        ) : (
-          <form onSubmit={handleSave}>
-            {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Phone</div>
-              <input value={prefs.phone} onChange={(e) => setPrefs({ ...prefs, phone: e.target.value })}
-                placeholder="0712345678"
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' }} />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Email</div>
-              <input value={prefs.email} onChange={(e) => setPrefs({ ...prefs, email: e.target.value })}
-                placeholder="you@kemri.go.ke"
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' }} />
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', marginBottom: 8 }}>
-              <input type="checkbox" checked={prefs.notify_sms} onChange={(e) => setPrefs({ ...prefs, notify_sms: e.target.checked })} />
-              Notify me via SMS
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', marginBottom: 18 }}>
-              <input type="checkbox" checked={prefs.notify_email} onChange={(e) => setPrefs({ ...prefs, notify_email: e.target.checked })} />
-              Notify me via Email
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button type="submit" disabled={saving} className="admin-btn admin-btn--approve" style={{ flex: 1 }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function AdminLayout({ title, lede, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(null);
-  const [showSettings, setShowSettings] = useState(false);
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
@@ -193,7 +110,6 @@ function AdminLayout({ title, lede, children }) {
           <span className="admin-sidebar__brand-mark">🏦</span>
           <div>
             <div className="admin-sidebar__brand-name">KEMRI SACCO</div>
-            <div className="admin-sidebar__brand-tag">Admin Console</div>
           </div>
         </div>
 
@@ -225,17 +141,11 @@ function AdminLayout({ title, lede, children }) {
           </div>
         ))}
 
-        <button
-          onClick={() => setShowSettings(true)}
-          className="admin-sidebar__footer"
-          style={{ border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
-        >
+        <Link to="/admin/settings" className="admin-sidebar__footer" style={{ textDecoration: 'none' }}>
           <div className="admin-sidebar__footer-name">{user?.full_name || 'Admin'}</div>
-          <div className="admin-sidebar__footer-role">{user?.role || 'admin'} · Notification settings</div>
-        </button>
+          <div className="admin-sidebar__footer-role">{user?.role || 'admin'}</div>
+        </Link>
       </aside>
-
-      {showSettings && <NotificationSettingsModal onClose={() => setShowSettings(false)} />}
 
       <div className="admin-main">
         <div className="admin-topbar">
