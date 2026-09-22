@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 import { useAuth } from '../context/AuthContext';
+import { ROLES, assignableRolesFor } from '../constants/roles';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-function InviteModal({ onClose, onSent }) {
+function InviteModal({ onClose, onSent, assignerRole }) {
+  const options = assignableRolesFor(assignerRole);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('staff');
+  const [role, setRole] = useState(options[0]?.value || 'staff');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // { inviteLink, emailSent, emailReason }
@@ -68,8 +70,9 @@ function InviteModal({ onClose, onSent }) {
                   value={role} onChange={(e) => setRole(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.9rem', background: '#fff' }}
                 >
-                  <option value="staff">Staff (view-only)</option>
-                  <option value="admin">Admin (full access)</option>
+                  {options.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
                 </select>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -176,6 +179,8 @@ function StaffManagement() {
     }
   };
 
+  const assignableOptions = assignableRolesFor(currentUser?.role);
+
   return (
     <AdminLayout title="Staff & Admin Management" lede="Manage who can access this admin console and their permissions.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
@@ -184,7 +189,9 @@ function StaffManagement() {
         background: 'var(--color-sage)', border: '1px solid var(--color-line)', borderRadius: 4,
         padding: '12px 16px', marginBottom: 20, fontSize: '0.85rem', color: 'var(--color-forest-deep)',
       }}>
-        Admins have full access. Staff accounts are view-only and cannot approve loans or manage accounts.
+        Each role has a different scope of access — Super Administrator and SACCO Administrator have the
+        broadest access, while Finance Officer, Loans Officer, Member Support, and Auditor are scoped to
+        their area. Staff accounts are view-only.
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -209,43 +216,50 @@ function StaffManagement() {
               </tr>
             </thead>
             <tbody>
-              {staff.map((s) => (
-                <tr key={s.id}>
-                  <td style={{ fontWeight: 500 }}>
-                    {s.full_name} {s.id === currentUser?.id && <span style={{ color: 'rgba(31,36,33,0.45)', fontWeight: 400 }}>(you)</span>}
-                  </td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.username}</td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.phone || '—'}</td>
-                  <td>
-                    <select
-                      value={s.role}
-                      onChange={(e) => handleRoleChange(s.id, e.target.value)}
-                      disabled={s.id === currentUser?.id}
-                      style={{ padding: '5px 8px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
-                    >
-                      <option value="staff">Staff</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
-                    {new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </td>
-                  <td>
-                    {s.id !== currentUser?.id && (
-                      <button className="admin-btn admin-btn--reject" onClick={() => handleRemove(s.id, s.full_name)}>
-                        Remove
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {staff.map((s) => {
+                const rowOptions = assignableOptions.some((r) => r.value === s.role)
+                  ? assignableOptions
+                  : [ROLES.find((r) => r.value === s.role), ...assignableOptions].filter(Boolean);
+
+                return (
+                  <tr key={s.id}>
+                    <td style={{ fontWeight: 500 }}>
+                      {s.full_name} {s.id === currentUser?.id && <span style={{ color: 'rgba(31,36,33,0.45)', fontWeight: 400 }}>(you)</span>}
+                    </td>
+                    <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.username}</td>
+                    <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.phone || '—'}</td>
+                    <td>
+                      <select
+                        value={s.role}
+                        onChange={(e) => handleRoleChange(s.id, e.target.value)}
+                        disabled={s.id === currentUser?.id || rowOptions.length === 0}
+                        style={{ padding: '5px 8px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
+                      >
+                        {rowOptions.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ color: 'rgba(31,36,33,0.6)' }}>
+                      {new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td>
+                      {s.id !== currentUser?.id && (
+                        <button className="admin-btn admin-btn--reject" onClick={() => handleRemove(s.id, s.full_name)}>
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {showInvite && (
-        <InviteModal onClose={() => setShowInvite(false)} onSent={fetchStaff} />
+        <InviteModal onClose={() => setShowInvite(false)} onSent={fetchStaff} assignerRole={currentUser?.role} />
       )}
     </AdminLayout>
   );

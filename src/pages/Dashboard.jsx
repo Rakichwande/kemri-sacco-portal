@@ -223,11 +223,6 @@ function Dashboard() {
               </div>
             </div>
           </div>
-
-          <p style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.45)', marginTop: 16 }}>
-            Dividend accrual and available liquidity aren't shown — neither has a defined formula
-            or policy anywhere in the system yet, so any number here would be invented, not real.
-          </p>
         </>
       ) : null}
     </AdminLayout>

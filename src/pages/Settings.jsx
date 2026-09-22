@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import { ROLE_LABELS } from '../constants/roles';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -139,7 +140,11 @@ function Settings() {
               </div>
               <div style={{ marginBottom: 18 }}>
                 <div style={labelStyle}>Role</div>
-                <input value={user?.role || ''} disabled style={{ ...inputStyle, width: 200, background: '#f4f1ea', color: 'rgba(31,36,33,0.5)', textTransform: 'capitalize' }} />
+                <input
+                  value={ROLE_LABELS[user?.role] || user?.role || ''}
+                  disabled
+                  style={{ ...inputStyle, width: 200, background: '#f4f1ea', color: 'rgba(31,36,33,0.5)' }}
+                />
               </div>
 
               <div style={{ borderTop: '1px solid var(--color-line)', paddingTop: 18, marginBottom: 4 }}>
