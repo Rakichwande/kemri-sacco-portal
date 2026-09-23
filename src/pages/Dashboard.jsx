@@ -9,54 +9,95 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Small dependency-free single-series trend chart - one card per series
-// (Contributions / Loans / Repayments). Kept intentionally simple: no
-// charting library, no tooltips beyond the browser's native title attribute.
-// Each chart uses its own max as the scale, so a low-volume series (e.g.
-// early loan disbursements) stays readable instead of being flattened by a
-// large one (e.g. accumulated contributions).
-function TrendChart({ title, accent, data, valueKey }) {
-  const values = data.map((d) => d[valueKey] || 0);
-  const max = Math.max(...values, 1);
-  const total = values.reduce((a, b) => a + b, 0);
-  const peak = Math.max(...values);
-  const hasAnyActivity = values.some((v) => v > 0);
+// Dependency-free grouped bar chart: three bars per month (contributions,
+// loans disbursed, repayments). All series share a single y-axis (the max
+// across all values) so cross-comparison between series is honest, but
+// every non-zero bar gets a minimum 4px height so a small value next to a
+// large one is still visible rather than a flat line.
+function FinancialTrendsChart({ data }) {
+  const max = Math.max(
+    ...data.flatMap((d) => [d.contributions, d.loans, d.repayments]),
+    1
+  );
+  const hasAnyActivity = data.some(
+    (d) => d.contributions > 0 || d.loans > 0 || d.repayments > 0
+  );
+
+  if (!hasAnyActivity) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: 180, color: 'rgba(31,36,33,0.45)', fontSize: '0.88rem',
+        border: '1px dashed var(--color-line)', borderRadius: 4,
+      }}>
+        No financial activity recorded in the last 6 months.
+      </div>
+    );
+  }
 
   return (
-    <div className="admin-table-card" style={{ padding: 20 }}>
-      <div style={{
-        fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600,
-        color: 'var(--color-forest-deep)', marginBottom: 2,
-      }}>
-        {title}
-      </div>
-      <div style={{ fontSize: '0.75rem', color: 'rgba(31,36,33,0.5)', marginBottom: 14 }}>
-        {hasAnyActivity
-          ? `${formatKES(total)} · peak ${formatKES(peak)}`
-          : 'No activity in the last 6 months'}
+    <div>
+      {/* Legend + peak label */}
+      <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: '0.82rem', flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-forest)', display: 'inline-block' }} />
+          Contributions
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#55308a', display: 'inline-block' }} />
+          Loans Disbursed
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-gold)', display: 'inline-block' }} />
+          Repayments
+        </span>
+        <span style={{ marginLeft: 'auto', color: 'rgba(31,36,33,0.5)' }}>
+          Peak: {formatKES(max)}
+        </span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 120, padding: '0 2px' }}>
-        {data.map((d) => {
-          const value = d[valueKey] || 0;
-          const height = Math.max((value / max) * 100, value > 0 ? 6 : 2);
-          return (
-            <div key={d.label} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 6,
+      {/* Grouped bars: one group per month, three bars per group */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '0 4px' }}>
+        {data.map((d) => (
+          <div key={d.label} style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 8,
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'flex-end', gap: 3,
+              height: 150, width: '100%', justifyContent: 'center',
             }}>
               <div
-                title={formatKES(value)}
+                title={`Contributions: ${formatKES(d.contributions)}`}
                 style={{
-                  width: '68%', maxWidth: 26, height,
-                  background: value > 0 ? accent : 'var(--color-line)',
+                  width: 14,
+                  height: Math.max((d.contributions / max) * 150, d.contributions > 0 ? 4 : 2),
+                  background: d.contributions > 0 ? 'var(--color-forest)' : 'var(--color-line)',
                   borderRadius: '3px 3px 0 0',
                 }}
               />
-              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.6)' }}>{d.label}</div>
+              <div
+                title={`Loans Disbursed: ${formatKES(d.loans)}`}
+                style={{
+                  width: 14,
+                  height: Math.max((d.loans / max) * 150, d.loans > 0 ? 4 : 2),
+                  background: d.loans > 0 ? '#55308a' : 'var(--color-line)',
+                  borderRadius: '3px 3px 0 0',
+                }}
+              />
+              <div
+                title={`Repayments: ${formatKES(d.repayments)}`}
+                style={{
+                  width: 14,
+                  height: Math.max((d.repayments / max) * 150, d.repayments > 0 ? 4 : 2),
+                  background: d.repayments > 0 ? 'var(--color-gold)' : 'var(--color-line)',
+                  borderRadius: '3px 3px 0 0',
+                }}
+              />
             </div>
-          );
-        })}
+            <div style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.6)' }}>{d.label}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -121,26 +162,18 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Three-column trend charts - money in / money out / money returned */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-            <TrendChart
-              title="Contributions"
-              accent="var(--color-forest)"
-              data={summary.monthlySeries}
-              valueKey="contributions"
-            />
-            <TrendChart
-              title="Loans Disbursed"
-              accent="#55308a"
-              data={summary.monthlySeries}
-              valueKey="loans"
-            />
-            <TrendChart
-              title="Repayments"
-              accent="var(--color-gold)"
-              data={summary.monthlySeries}
-              valueKey="repayments"
-            />
+          {/* Single grouped chart: three series per month */}
+          <div className="admin-table-card" style={{ padding: 24, marginBottom: 24 }}>
+            <div style={{
+              fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600,
+              color: 'var(--color-forest-deep)', marginBottom: 4,
+            }}>
+              Financial Trends
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16 }}>
+              Last 6 months — money in, money out, money returned.
+            </div>
+            <FinancialTrendsChart data={summary.monthlySeries} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
