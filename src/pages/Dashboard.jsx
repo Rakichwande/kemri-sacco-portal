@@ -9,62 +9,54 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Small dependency-free grouped bar chart - no charting library is installed
-// yet, and pulling one in for a single chart isn't worth the bundle size.
-function ComparisonChart({ data }) {
-  const max = Math.max(...data.flatMap((d) => [d.contributions, d.repayments]), 1);
-  const hasAnyActivity = data.some((d) => d.contributions > 0 || d.repayments > 0);
-
-  if (!hasAnyActivity) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: 160, color: 'rgba(31,36,33,0.45)', fontSize: '0.88rem',
-        border: '1px dashed var(--color-line)', borderRadius: 4,
-      }}>
-        No contributions or repayments recorded yet.
-      </div>
-    );
-  }
+// Small dependency-free single-series trend chart - one card per series
+// (Contributions / Loans / Repayments). Kept intentionally simple: no
+// charting library, no tooltips beyond the browser's native title attribute.
+// Each chart uses its own max as the scale, so a low-volume series (e.g.
+// early loan disbursements) stays readable instead of being flattened by a
+// large one (e.g. accumulated contributions).
+function TrendChart({ title, accent, data, valueKey }) {
+  const values = data.map((d) => d[valueKey] || 0);
+  const max = Math.max(...values, 1);
+  const total = values.reduce((a, b) => a + b, 0);
+  const peak = Math.max(...values);
+  const hasAnyActivity = values.some((v) => v > 0);
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: '0.8rem' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-forest)', display: 'inline-block' }} />
-          Contributions
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-gold)', display: 'inline-block' }} />
-          Repayments
-        </span>
+    <div className="admin-table-card" style={{ padding: 20 }}>
+      <div style={{
+        fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600,
+        color: 'var(--color-forest-deep)', marginBottom: 2,
+      }}>
+        {title}
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, height: 160, padding: '0 4px' }}>
-        {data.map((d) => (
-          <div key={d.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 110 }}>
+      <div style={{ fontSize: '0.75rem', color: 'rgba(31,36,33,0.5)', marginBottom: 14 }}>
+        {hasAnyActivity
+          ? `${formatKES(total)} · peak ${formatKES(peak)}`
+          : 'No activity in the last 6 months'}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 120, padding: '0 2px' }}>
+        {data.map((d) => {
+          const value = d[valueKey] || 0;
+          const height = Math.max((value / max) * 100, value > 0 ? 6 : 2);
+          return (
+            <div key={d.label} style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 6,
+            }}>
               <div
-                title={formatKES(d.contributions)}
+                title={formatKES(value)}
                 style={{
-                  width: 16,
-                  height: Math.max((d.contributions / max) * 110, d.contributions > 0 ? 4 : 2),
-                  background: d.contributions > 0 ? 'var(--color-forest)' : 'var(--color-line)',
+                  width: '68%', maxWidth: 26, height,
+                  background: value > 0 ? accent : 'var(--color-line)',
                   borderRadius: '3px 3px 0 0',
                 }}
               />
-              <div
-                title={formatKES(d.repayments)}
-                style={{
-                  width: 16,
-                  height: Math.max((d.repayments / max) * 110, d.repayments > 0 ? 4 : 2),
-                  background: d.repayments > 0 ? 'var(--color-gold)' : 'var(--color-line)',
-                  borderRadius: '3px 3px 0 0',
-                }}
-              />
+              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.6)' }}>{d.label}</div>
             </div>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.6)' }}>{d.label}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -129,17 +121,29 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="admin-table-card" style={{ padding: 24 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 4 }}>
-              Contributions vs Repayments
-            </div>
-            <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16 }}>
-              Last 6 months.
-            </div>
-            <ComparisonChart data={summary.monthlySeries} />
+          {/* Three-column trend charts - money in / money out / money returned */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+            <TrendChart
+              title="Contributions"
+              accent="var(--color-forest)"
+              data={summary.monthlySeries}
+              valueKey="contributions"
+            />
+            <TrendChart
+              title="Loans Disbursed"
+              accent="#55308a"
+              data={summary.monthlySeries}
+              valueKey="loans"
+            />
+            <TrendChart
+              title="Repayments"
+              accent="var(--color-gold)"
+              data={summary.monthlySeries}
+              valueKey="repayments"
+            />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginTop: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
             <div className="admin-table-card" style={{ padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-forest-deep)' }}>
@@ -198,6 +202,13 @@ function Dashboard() {
                   textDecoration: 'none', color: 'var(--color-ink)', fontSize: '0.88rem',
                 }}>
                   Review Approval Queue <span>→</span>
+                </Link>
+                <Link to="/admin/withdrawals" style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,
+                  textDecoration: 'none', color: 'var(--color-ink)', fontSize: '0.88rem',
+                }}>
+                  Process Withdrawals <span>→</span>
                 </Link>
                 <Link to="/admin/audit-trail" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
