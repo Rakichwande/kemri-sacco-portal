@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import ReceiptModal from '../components/ReceiptModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -16,6 +17,7 @@ function RepaymentHistory() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [channel, setChannel] = useState('all');
+  const [receiptRef, setReceiptRef] = useState(null);
 
   const fetchRepayments = async () => {
     setLoading(true);
@@ -123,6 +125,7 @@ function RepaymentHistory() {
                 <th>Reference</th>
                 <th>Channel</th>
                 <th style={{ textAlign: 'right' }}>Amount</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -139,12 +142,24 @@ function RepaymentHistory() {
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(r.amount)}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {r.mpesa_receipt && (
+                      <button
+                        onClick={() => setReceiptRef(r.mpesa_receipt)}
+                        style={{ padding: '5px 12px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                      >
+                        Receipt
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {receiptRef && <ReceiptModal mpesaReceipt={receiptRef} onClose={() => setReceiptRef(null)} />}
     </AdminLayout>
   );
 }

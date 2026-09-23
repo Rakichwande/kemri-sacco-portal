@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import ReceiptModal from '../components/ReceiptModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -15,6 +16,7 @@ function ContributionLogs() {
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [receiptId, setReceiptId] = useState(null);
 
   const fetchContributions = async () => {
     setLoading(true);
@@ -111,6 +113,7 @@ function ContributionLogs() {
                 <th>Member</th>
                 <th>Reference</th>
                 <th style={{ textAlign: 'right' }}>Amount</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -122,6 +125,14 @@ function ContributionLogs() {
                   <td style={{ fontWeight: 500 }}>{c.member_name || `Member #${c.member_id}`}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{c.member_reference}</td>
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(c.amount)}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      onClick={() => setReceiptId(c.id)}
+                      style={{ padding: '5px 12px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      Receipt
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -132,6 +143,8 @@ function ContributionLogs() {
       <p style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.45)', marginTop: 16 }}>
         No channel filter here — contributions have no stored channel in the system, unlike repayments.
       </p>
+
+      {receiptId && <ReceiptModal paymentId={receiptId} onClose={() => setReceiptId(null)} />}
     </AdminLayout>
   );
 }
