@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import StatementModal from '../components/StatementModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -129,6 +130,7 @@ function MemberDirectory() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null); // { mode, member }
+  const [statementMemberId, setStatementMemberId] = useState(null);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -242,6 +244,9 @@ function MemberDirectory() {
                       <button onClick={() => setModal({ mode: 'edit', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         Edit
                       </button>
+                      <button onClick={() => setStatementMemberId(m.id)} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                        Statement
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -258,6 +263,10 @@ function MemberDirectory() {
           onClose={() => setModal(null)}
           onSaved={handleSaved}
         />
+      )}
+
+      {statementMemberId && (
+        <StatementModal memberId={statementMemberId} onClose={() => setStatementMemberId(null)} />
       )}
     </AdminLayout>
   );
