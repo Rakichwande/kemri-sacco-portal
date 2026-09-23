@@ -16,6 +16,7 @@ import FinancialReports from './pages/FinancialReports';
 import DataImport from './pages/DataImport';
 import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
+import WithdrawalQueue from './pages/WithdrawalQueue';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -64,6 +65,11 @@ function AppRoutes() {
       <Route path="/admin/contributions" element={
         <ProtectedRoute>
           <ContributionLogs />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/withdrawals" element={
+        <ProtectedRoute>
+          <WithdrawalQueue />
         </ProtectedRoute>
       } />
       <Route path="/admin/staff" element={
