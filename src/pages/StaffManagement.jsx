@@ -113,7 +113,7 @@ function InviteModal({ onClose, onSent, assignerRole }) {
   );
 }
 
-// Formats an expiry timestamp as "in X days" / "in X hours" / "expires today".
+// Formats an expiry timestamp as "in X days" / "in X hours" / "soon".
 function formatExpiry(expiresAt) {
   const now = new Date();
   const exp = new Date(expiresAt);
@@ -162,7 +162,7 @@ function StaffManagement() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
       });
       // 404 means the route isn't deployed yet - treat as "no invites" rather
-      // than showing an error, so the page still works during the rollout.
+      // than showing an error, so the page still works during rollout.
       if (res.status === 404) {
         setPendingInvites([]);
         return;
@@ -171,7 +171,7 @@ function StaffManagement() {
       setPendingInvites(await res.json());
     } catch (err) {
       console.error('Fetch pending invites error:', err);
-      // Non-fatal: the staff roster can still load. Just skip the section.
+      // Non-fatal: the staff roster still loads. Skip the section.
       setPendingInvites([]);
     }
   };
@@ -250,7 +250,6 @@ function StaffManagement() {
         their area. Staff accounts are view-only.
       </div>
 
-      {/* ---------- Pending Invites ---------- */}
       {pendingInvites.length > 0 && (
         <div className="admin-table-card" style={{ marginBottom: 24 }}>
           <div style={{
@@ -306,7 +305,6 @@ function StaffManagement() {
         </div>
       )}
 
-      {/* ---------- Active Staff ---------- */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(true)}>
           + Invite Staff
