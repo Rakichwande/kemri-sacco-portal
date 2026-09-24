@@ -50,15 +50,16 @@ function ReviewModal({ loan, onClose }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)' }}>
-            Loan #{loan.id}
+            {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`}
           </div>
           <span className={`admin-badge admin-badge--${loan.status}`}>{loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}</span>
         </div>
         <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16 }}>
-          {loan.member_reference}
+          Member: {loan.member_name || `#${loan.member_id}`} · {loan.member_reference || '—'}
         </div>
 
         {row('Member', loan.member_name || loan.member_id)}
+        {row('Member reference', loan.member_reference || '—')}
         {row('Phone', loan.phone_number || 'N/A')}
         {row('Purpose', loan.purpose || '—')}
         {row('Principal', formatKES(loan.principal))}
@@ -249,9 +250,9 @@ function AdminLoans() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Loan Ref</th>
                 <th>Member</th>
-                <th>Reference</th>
-                <th>Purpose</th>
+                <th>Member Ref</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Applied</th>
                 <th>Status</th>
@@ -261,9 +262,13 @@ function AdminLoans() {
             <tbody>
               {visibleLoans.map((loan) => (
                 <tr key={loan.id}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 500, color: 'var(--color-forest-deep)' }}>
+                    {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`}
+                  </td>
                   <td style={{ fontWeight: 500 }}>{loan.member_name || loan.member_id}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{loan.member_reference}</td>
-                  <td>{loan.purpose || '—'}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>
+                    {loan.member_reference || '—'}
+                  </td>
                   <td style={{ textAlign: 'right' }}>{formatKES(loan.principal)}</td>
                   <td style={{ color: 'rgba(31,36,33,0.6)' }}>
                     {new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
