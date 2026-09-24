@@ -12,7 +12,7 @@ function InviteModal({ onClose, onSent, assignerRole }) {
   const [role, setRole] = useState(options[0]?.value || 'staff');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [result, setResult] = useState(null); // { inviteLink, emailSent, emailReason }
+  const [result, setResult] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,9 +113,23 @@ function InviteModal({ onClose, onSent, assignerRole }) {
   );
 }
 
+// Formats an expiry timestamp as "in X days" / "in X hours" / "expires today".
+function formatExpiry(expiresAt) {
+  const now = new Date();
+  const exp = new Date(expiresAt);
+  const diffMs = exp - now;
+  if (diffMs <= 0) return 'expired';
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (days >= 1) return `in ${days} day${days === 1 ? '' : 's'}`;
+  if (hours >= 1) return `in ${hours} hour${hours === 1 ? '' : 's'}`;
+  return 'soon';
+}
+
 function StaffManagement() {
   const { user: currentUser } = useAuth();
   const [staff, setStaff] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -142,7 +156,32 @@ function StaffManagement() {
     }
   };
 
-  useEffect(() => { fetchStaff(); }, []);
+  const fetchPendingInvites = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/invites/pending`, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      });
+      // 404 means the route isn't deployed yet - treat as "no invites" rather
+      // than showing an error, so the page still works during the rollout.
+      if (res.status === 404) {
+        setPendingInvites([]);
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setPendingInvites(await res.json());
+    } catch (err) {
+      console.error('Fetch pending invites error:', err);
+      // Non-fatal: the staff roster can still load. Just skip the section.
+      setPendingInvites([]);
+    }
+  };
+
+  const refreshAll = () => {
+    fetchStaff();
+    fetchPendingInvites();
+  };
+
+  useEffect(() => { refreshAll(); }, []);
 
   const handleRoleChange = async (id, role) => {
     try {
@@ -179,6 +218,23 @@ function StaffManagement() {
     }
   };
 
+  const handleRevokeInvite = async (invite) => {
+    if (!window.confirm(`Revoke the invite sent to ${invite.email}? The link they received will stop working.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/invites/${invite.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to revoke invite');
+      }
+      fetchPendingInvites();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  };
+
   const assignableOptions = assignableRolesFor(currentUser?.role);
 
   return (
@@ -194,6 +250,63 @@ function StaffManagement() {
         their area. Staff accounts are view-only.
       </div>
 
+      {/* ---------- Pending Invites ---------- */}
+      {pendingInvites.length > 0 && (
+        <div className="admin-table-card" style={{ marginBottom: 24 }}>
+          <div style={{
+            padding: '16px 20px 8px',
+            fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 600,
+            color: 'var(--color-forest-deep)',
+          }}>
+            Pending Invites ({pendingInvites.length})
+          </div>
+          <div style={{ padding: '0 20px 16px', fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)' }}>
+            Invites awaiting acceptance. Revoking an invite invalidates the link the recipient received.
+          </div>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Invited By</th>
+                <th>Sent</th>
+                <th>Expires</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingInvites.map((invite) => (
+                <tr key={invite.id}>
+                  <td style={{ fontWeight: 500 }}>{invite.email}</td>
+                  <td style={{ color: 'rgba(31,36,33,0.7)' }}>
+                    {ROLES.find((r) => r.value === invite.role)?.label || invite.role}
+                  </td>
+                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
+                    {invite.invited_by_name || invite.invited_by_username || '—'}
+                  </td>
+                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
+                    {new Date(invite.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
+                    {formatExpiry(invite.expires_at)}
+                  </td>
+                  <td>
+                    <button
+                      className="admin-btn admin-btn--reject"
+                      onClick={() => handleRevokeInvite(invite)}
+                      title="Invalidate this invite link"
+                    >
+                      Revoke
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ---------- Active Staff ---------- */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(true)}>
           + Invite Staff
@@ -259,7 +372,11 @@ function StaffManagement() {
       )}
 
       {showInvite && (
-        <InviteModal onClose={() => setShowInvite(false)} onSent={fetchStaff} assignerRole={currentUser?.role} />
+        <InviteModal
+          onClose={() => setShowInvite(false)}
+          onSent={() => { fetchStaff(); fetchPendingInvites(); }}
+          assignerRole={currentUser?.role}
+        />
       )}
     </AdminLayout>
   );
