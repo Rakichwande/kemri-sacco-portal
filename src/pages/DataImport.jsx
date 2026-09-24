@@ -15,15 +15,30 @@ const REQUIRED_FIELDS = ['full_name', 'national_id']; // phone is optional (lega
 // same lookup key). Any header cell in the file is compared against this
 // map to figure out which canonical field it belongs to.
 //
+// Aliases are intentionally generous because real-world spreadsheets name
+// the same field in many ways. The CEO's contacts spreadsheet, for example,
+// labels the phone column "CONTACTS" rather than "phone".
+//
 // Unknown headers (like "M/NO." which the CEO's spreadsheet includes as a
 // row counter) are simply ignored - they're not treated as errors.
 const HEADER_ALIASES = {
-  full_name: ['fullname', 'name', 'membername', 'member'],
-  national_id: ['nationalid', 'idnumber', 'id', 'nationalidnumber', 'idno'],
-  phone_number: ['phone', 'phonenumber', 'mobile', 'mobilenumber', 'msisdn', 'tel'],
-  reference_number: ['referencenumber', 'reference', 'ref', 'pno', 'sacconumber', 'membernumber', 'membershipnumber'],
-  employer: ['employer', 'employername', 'company', 'organization'],
-  join_date: ['joindate', 'datejoined', 'joinedon', 'membershipdate', 'registrationdate'],
+  full_name: ['fullname', 'name', 'membername', 'member', 'fullnames'],
+  national_id: ['nationalid', 'idnumber', 'id', 'nationalidnumber', 'idno', 'idnos', 'nationalids'],
+  phone_number: [
+    'phone', 'phonenumber', 'phonenumbers', 'phoneno', 'phno',
+    'tel', 'telno', 'telephone', 'telnumber',
+    'mobile', 'mobileno', 'mobilenumber',
+    'cell', 'cellno', 'cellphone',
+    'msisdn',
+    'contacts', 'contact', 'contactno', 'contactnumber',
+  ],
+  reference_number: [
+    'referencenumber', 'reference', 'ref', 'refno',
+    'pno', 'sacconumber', 'saccoid', 'saccono',
+    'membernumber', 'membershipnumber', 'memberno', 'memberid',
+  ],
+  employer: ['employer', 'employername', 'company', 'organization', 'organisation', 'workplace'],
+  join_date: ['joindate', 'datejoined', 'joinedon', 'membershipdate', 'registrationdate', 'dateofjoining'],
 };
 
 // Reduce any header cell to its comparable form: lowercase, strip anything
@@ -114,8 +129,8 @@ async function parseFile(file) {
   }
 
   // Build the row objects. Source row numbers are 1-indexed to match how
-  // Excel/Sheets display them (the title row is row 1, headers are row 2,
-  // first data row is row 3, etc.).
+  // Excel/Sheets display them (a title row is row 1, headers are row 2 or
+  // 3 depending on layout, first data row follows).
   const rows = [];
   for (let i = headerRowIndex + 1; i < grid.length; i++) {
     const raw = grid[i];
@@ -276,7 +291,7 @@ function DataImport() {
           </div>
           <div style={{ marginTop: 4 }}>
             Column names are case-insensitive and underscore-insensitive. Common aliases
-            (P/NO for reference_number, Phone for phone_number, etc.) are recognized automatically.
+            (P/NO for reference_number, CONTACTS for phone_number, etc.) are recognized automatically.
           </div>
         </div>
       </div>
