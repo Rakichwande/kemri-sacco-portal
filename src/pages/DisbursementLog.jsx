@@ -17,7 +17,7 @@ function formatKES(amount) {
 // Anything upstream of 'approved' (pending, rejected) belongs in the
 // Approval Queue — this page doesn't show those.
 const LIFECYCLE_STATUSES = ['approved', 'disbursing', 'disbursed', 'repaid'];
-const ACTIVE_STATUSES = ['approved', 'disbursing']; // needs attention or in flight
+
 
 // Manual disbursement modal. Staff have already sent the money to the
 // member themselves (via the M-Pesa app, bank transfer, whatever) and are
