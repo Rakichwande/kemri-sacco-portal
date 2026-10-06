@@ -198,6 +198,18 @@ function DisbursementLog() {
   const completed = filtered.filter((l) => l.status === 'disbursed' || l.status === 'repaid');
   const totalDisbursed = completed.reduce((sum, l) => sum + Number(l.principal), 0);
 
+  // Total still owed across all currently-disbursed loans. Excludes repaid
+  // loans (they contribute 0 anyway) and loans not yet funded (approved /
+  // disbursing have an outstanding_balance field set at creation, but no
+  // money has moved, so counting them would overstate what the SACCO is
+  // waiting to receive).
+  //
+  // This is the "how much money is out there" number staff should watch.
+  // If it grows month over month, repayments are lagging disbursements.
+  const totalOutstanding = completed
+    .filter((l) => l.status === 'disbursed')
+    .reduce((sum, l) => sum + Number(l.outstanding_balance || 0), 0);
+
   const statusBadge = (status) => {
     const colors = {
       approved: { background: 'var(--color-gold-soft)', color: '#7a5a10' },
@@ -209,11 +221,31 @@ function DisbursementLog() {
     return <span className="admin-badge" style={style}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
   };
 
+  // Renders the Remaining cell for a row. Three states:
+  //   approved / disbursing  → "—"  (money hasn't moved; showing a balance
+  //                                 would suggest the member owes something
+  //                                 when they don't yet)
+  //   disbursed with balance → red amount (still being repaid)
+  //   repaid                 → "Cleared" (green, settled)
+  const remainingCell = (l) => {
+    if (l.status === 'approved' || l.status === 'disbursing') {
+      return <span style={{ color: 'rgba(31,36,33,0.3)' }}>—</span>;
+    }
+    const outstanding = Number(l.outstanding_balance || 0);
+    if (outstanding > 0) {
+      return <span style={{ fontWeight: 500, color: '#a13030' }}>{formatKES(outstanding)}</span>;
+    }
+    return <span style={{ fontWeight: 500, color: 'var(--color-forest-deep)' }}>Cleared</span>;
+  };
+
   return (
     <AdminLayout title="Loan Disbursements" lede="Approve-to-disburse workflow — action approved loans, track in-flight B2C transfers, review completed disbursements.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+      {/* Five stat cards — the fifth (Total Outstanding) is the recovery
+          figure: the sum of what all currently-disbursed loans still owe
+          back to the SACCO. Expands the grid to 5 columns. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 20 }}>
         <div className="admin-stat-card" style={{ '--stat-accent': '#7a5a10' }}>
           <div className="admin-stat-card__value">{awaiting.length}</div>
           <div className="admin-stat-card__label">Awaiting Disbursement</div>
@@ -229,6 +261,10 @@ function DisbursementLog() {
         <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
           <div className="admin-stat-card__value">{formatKES(totalDisbursed)}</div>
           <div className="admin-stat-card__label">Total Disbursed</div>
+        </div>
+        <div className="admin-stat-card" style={{ '--stat-accent': '#a13030' }}>
+          <div className="admin-stat-card__value">{formatKES(totalOutstanding)}</div>
+          <div className="admin-stat-card__label">Total Outstanding</div>
         </div>
       </div>
 
@@ -288,6 +324,9 @@ function DisbursementLog() {
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Term</th>
                 <th style={{ textAlign: 'right' }}>Monthly</th>
+                {/* Remaining = the loan's outstanding_balance. Only meaningful
+                    once money has moved, so approved/disbursing rows show "—". */}
+                <th style={{ textAlign: 'right' }}>Remaining</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -301,6 +340,7 @@ function DisbursementLog() {
                   <td style={{ textAlign: 'right' }}>{formatKES(l.principal)}</td>
                   <td>{l.tenure_months} mo</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.monthly_installment)}</td>
+                  <td style={{ textAlign: 'right' }}>{remainingCell(l)}</td>
                   <td>{statusBadge(l.status)}</td>
                   <td>
                     {l.status === 'approved' && (
