@@ -80,11 +80,113 @@ function StatementModal({ memberId, onClose }) {
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'rgba(31,36,33,0.55)' }}>{statement.member.reference}</div>
                 <div style={{ color: 'rgba(31,36,33,0.55)' }}>{statement.member.phone_number}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)' }}>Opening Balance</div>
-                <div style={{ fontWeight: 500 }}>{formatKES(statement.openingBalance)}</div>
+            </div>
+
+            {/* Financial snapshot — three numbers side by side so the
+                member's full position is visible at a glance. Before this,
+                the statement showed only savings; the loan position was
+                invisible to anyone reading it.
+
+                  Savings         = closingBalance (computed at bottom)
+                  Outstanding     = member.total_outstanding_balance
+                  Net position    = savings − outstanding
+
+                Net position is informational — a member with KES 5,000
+                savings and KES 8,000 outstanding has −KES 3,000 net, which
+                is what an accountant would call their actual equity in the
+                SACCO. Signed so positive/negative reads correctly. */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 20,
+              padding: 16,
+              background: 'var(--color-sage-soft, #eef2ee)',
+              borderRadius: 4,
+            }}>
+              <div>
+                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  Savings Balance
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-forest-deep)' }}>
+                  {formatKES(statement.closingBalance)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  Loan Outstanding
+                </div>
+                <div style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 600,
+                  color: statement.member.total_outstanding_balance > 0 ? '#a13030' : 'rgba(31,36,33,0.5)',
+                }}>
+                  {statement.member.total_outstanding_balance > 0
+                    ? formatKES(statement.member.total_outstanding_balance)
+                    : 'KES 0'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  Net Position
+                </div>
+                {(() => {
+                  const net = Number(statement.closingBalance) - Number(statement.member.total_outstanding_balance);
+                  return (
+                    <div style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 600,
+                      color: net >= 0 ? 'var(--color-forest-deep)' : '#a13030',
+                    }}>
+                      {net < 0 ? '-' : ''}{formatKES(Math.abs(net))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
+
+            {/* Active loan detail, shown only when a loan is in flight.
+                Gives staff the specifics without them having to open the
+                Disbursement Log in a separate tab — term, monthly, paid so
+                far. Disappears entirely for members with no active loan,
+                so the modal stays uncluttered for savers. */}
+            {statement.activeLoan && (
+              <div style={{
+                marginBottom: 20,
+                padding: 14,
+                border: '1px solid var(--color-line)',
+                borderRadius: 4,
+                fontSize: '0.85rem',
+              }}>
+                <div style={{
+                  fontSize: '0.68rem',
+                  textTransform: 'uppercase',
+                  color: 'rgba(31,36,33,0.5)',
+                  marginBottom: 8,
+                  letterSpacing: '0.04em',
+                }}>
+                  Active Loan · {statement.activeLoan.reference}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(31,36,33,0.5)' }}>Principal</div>
+                    <div style={{ fontFamily: 'var(--font-mono)' }}>{formatKES(statement.activeLoan.principal)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(31,36,33,0.5)' }}>Paid So Far</div>
+                    <div style={{ fontFamily: 'var(--font-mono)' }}>{formatKES(statement.activeLoan.amount_paid)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(31,36,33,0.5)' }}>Monthly</div>
+                    <div style={{ fontFamily: 'var(--font-mono)' }}>{formatKES(statement.activeLoan.monthly_installment)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(31,36,33,0.5)' }}>Term</div>
+                    <div style={{ fontFamily: 'var(--font-mono)' }}>{statement.activeLoan.tenure_months} mo</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {statement.lines.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'rgba(31,36,33,0.5)', fontSize: '0.88rem' }}>
@@ -98,7 +200,7 @@ function StatementModal({ memberId, onClose }) {
                     <th>Type</th>
                     <th>Reference</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
-                    <th style={{ textAlign: 'right' }}>Balance</th>
+                    <th style={{ textAlign: 'right' }}>Savings Balance</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -116,13 +218,6 @@ function StatementModal({ memberId, onClose }) {
                 </tbody>
               </table>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-line)' }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)' }}>Closing Savings Balance</div>
-                <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>{formatKES(statement.closingBalance)}</div>
-              </div>
-            </div>
 
             <div className="statement-modal-actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 24 }}>
               <button onClick={onClose} style={{ padding: '9px 18px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
