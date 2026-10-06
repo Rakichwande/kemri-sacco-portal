@@ -75,17 +75,44 @@ function MemberPerformance() {
         for a report header that would be redundant on screen (the
         AdminLayout already provides a page shell).
       */}
-      <style>{`
+            <style>{`
         .print-only { display: none; }
         @media print {
-          .admin-sidebar,
-          .admin-topbar,
-          .print-hide { display: none !important; }
-          .admin-main { margin-left: 0 !important; }
-          .admin-content { padding: 16px !important; }
-          body { background: #fff !important; }
-          .admin-table-card { box-shadow: none !important; border: 1px solid #d0d0d0 !important; }
+          /* Classic "print only this section" pattern: hide everything
+             by visibility (not display, so absolute positioning still
+             works), then reveal the report and its descendants.
+
+             The previous approach hid the sidebar and topbar by class,
+             but the surrounding .admin-shell layout still reserved the
+             sidebar's column, pushing the content off the printable
+             area. This technique ignores the surrounding layout
+             entirely. */
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 0;
+          }
+
+          /* Print-friendly boxes — default browser printing strips
+             backgrounds, which makes the table header row and stat cards
+             unreadable. Restore a thin border on the cards. */
+          .admin-table-card {
+            box-shadow: none !important;
+            border: 1px solid #c0c0c0 !important;
+            background: #fff !important;
+          }
+
+          /* The print header appears; the on-screen controls don't. */
           .print-only { display: block !important; }
+          .print-hide { display: none !important; }
+
+          /* Ensure colours print for the status badges (green, red). */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
           @page { margin: 15mm; }
         }
       `}</style>
@@ -99,7 +126,7 @@ function MemberPerformance() {
           No report available.
         </div>
       ) : (
-        <div className="member-performance">
+        <div className="member-performance print-area">
 
           {/* Printable report header — hidden on screen because AdminLayout
               already renders the shell. On paper this is the only title. */}
