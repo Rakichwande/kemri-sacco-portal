@@ -102,6 +102,24 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
 
         {isView ? (
           <div>
+            {/* Read-only financial snapshot at the top of the View modal —
+                the two figures staff most often need when opening a member
+                record. Coloured to match the table: savings in the forest
+                green used for the Savings column, outstanding in the red
+                used for the Outstanding column when non-zero. */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--color-sage-soft, #eef2ee)', borderRadius: 4, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)' }}>Savings balance</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-forest-deep)' }}>{formatKES(member.savings_balance || 0)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)' }}>Outstanding loan</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: Number(member.total_outstanding_balance) > 0 ? '#a13030' : 'rgba(31,36,33,0.5)' }}>
+                  {Number(member.total_outstanding_balance) > 0 ? formatKES(member.total_outstanding_balance) : 'KES 0'}
+                </div>
+              </div>
+            </div>
+
             {[...EDITABLE_FIELDS, { key: 'phone_number', label: 'Phone' }, { key: 'id_number', label: 'National ID' }].map((f) => (
               <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
                 <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{f.label}</span>
@@ -431,6 +449,11 @@ function MemberDirectory() {
                 <th>Employer</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Savings</th>
+                {/* Outstanding loan balance — the number staff need most when
+                    checking a member's current position. Sourced from
+                    members.total_outstanding_balance, which is maintained by
+                    markDisbursed (increment) and applyRepayment (decrement). */}
+                <th style={{ textAlign: 'right' }}>Outstanding</th>
                 <th>Loan</th>
                 <th>Actions</th>
               </tr>
@@ -448,6 +471,13 @@ function MemberDirectory() {
                   <td>{m.employer || '—'}</td>
                   <td>{statusBadge(m.status)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(m.savings_balance)}</td>
+                  <td style={{
+                    textAlign: 'right',
+                    fontWeight: 500,
+                    color: Number(m.total_outstanding_balance) > 0 ? '#a13030' : 'rgba(31,36,33,0.35)',
+                  }}>
+                    {Number(m.total_outstanding_balance) > 0 ? formatKES(m.total_outstanding_balance) : '—'}
+                  </td>
                   <td>{loanBadge(m.current_loan_status)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
