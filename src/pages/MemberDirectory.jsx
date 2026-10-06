@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 import StatementModal from '../components/StatementModal';
@@ -490,6 +491,13 @@ function MemberDirectory() {
                       <button onClick={() => setStatementMemberId(m.id)} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         Statement
                       </button>
+                      {/* Performance opens a dedicated page rather than a
+                          modal — the credit report has too much content to
+                          fit comfortably in a dialog. Uses React Router's
+                          Link so the browser back button works naturally. */}
+                      <Link to={`/admin/members/${m.id}/performance`} style={{ color: 'var(--color-forest)', fontSize: '0.82rem', textDecoration: 'underline' }}>
+                        Performance
+                      </Link>
                       {canToggleBoard && (
                         <button
                           onClick={() => handleToggleBoard(m)}

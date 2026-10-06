@@ -8,6 +8,7 @@ import AdminLoans from './pages/AdminLoans';
 import AuditTrail from './pages/AuditTrail';
 import Dashboard from './pages/Dashboard';
 import MemberDirectory from './pages/MemberDirectory';
+import MemberPerformance from './pages/MemberPerformance';
 import DisbursementLog from './pages/DisbursementLog';
 import RepaymentHistory from './pages/RepaymentHistory';
 import ContributionLogs from './pages/ContributionLogs';
@@ -51,6 +52,15 @@ function AppRoutes() {
       <Route path="/admin/members" element={
         <ProtectedRoute>
           <MemberDirectory />
+        </ProtectedRoute>
+      } />
+      {/* Per-member credit performance report — lifetime loan history,
+          on-time repayment tally, savings vs outstanding. Reached via the
+          "Performance" action in the Member Directory. More specific path
+          than /admin/members, so React Router matches the right one. */}
+      <Route path="/admin/members/:id/performance" element={
+        <ProtectedRoute>
+          <MemberPerformance />
         </ProtectedRoute>
       } />
       <Route path="/admin/disbursements" element={
