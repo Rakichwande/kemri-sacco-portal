@@ -17,6 +17,7 @@ import DataImport from './pages/DataImport';
 import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
 import WithdrawalQueue from './pages/WithdrawalQueue';
+import LoanAgingReport from './pages/LoanAgingReport';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -80,6 +81,14 @@ function AppRoutes() {
       <Route path="/admin/reports" element={
         <ProtectedRoute>
           <FinancialReports />
+        </ProtectedRoute>
+      } />
+      {/* Aging Report — how far behind each outstanding loan is. Distinct
+          from /admin/reports (financial period summaries) because it's a
+          point-in-time snapshot of lending health, not a periodic view. */}
+      <Route path="/admin/aging" element={
+        <ProtectedRoute>
+          <LoanAgingReport />
         </ProtectedRoute>
       } />
       <Route path="/admin/data-import" element={
