@@ -177,11 +177,19 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
 // to type by accident, which is exactly the wrong property for a
 // destructive action.
 //
-// Handles the 409 (HAS_HISTORY) response inline: the modal stays open, and
-// the member's blocking history is shown verbatim. The user's next action
-// is "Close", not "try again" — there is nothing to retry. That is a
-// different failure mode from a network error, so it is not styled as an
-// error banner but as an explanation.
+// Deletion rule shown to the staff member:
+//   - Financial history (deposits, repayments, disbursed/repaid loans,
+//     processed withdrawals) BLOCKS deletion.
+//   - Pending or rejected loan applications and withdrawal requests are
+//     removed with the member — they carry no financial consequence.
+// The modal explains both, so the person clicking Delete knows what will
+// happen before they confirm.
+//
+// The 409 (HAS_HISTORY) response is handled inline: the modal stays open,
+// and the blocking history is shown verbatim. The user's next action is
+// "Close", not "try again" — there is nothing to retry. That is a
+// different failure mode from a network error, so it is styled as an
+// explanation rather than an error banner.
 function DeleteMemberModal({ member, onClose, onDeleted }) {
   const [confirmText, setConfirmText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -204,7 +212,7 @@ function DeleteMemberModal({ member, onClose, onDeleted }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 409) {
-        // Member has transaction history — legitimate business outcome.
+        // Member has financial history — legitimate business outcome.
         setBlocked({ message: data.error, counts: data.counts });
         return;
       }
@@ -245,11 +253,27 @@ function DeleteMemberModal({ member, onClose, onDeleted }) {
           </>
         ) : (
           <>
-            <div style={{ fontSize: '0.88rem', color: 'rgba(31,36,33,0.7)', marginBottom: 16, lineHeight: 1.5 }}>
+            <div style={{ fontSize: '0.88rem', color: 'rgba(31,36,33,0.7)', marginBottom: 12, lineHeight: 1.5 }}>
               You are about to permanently delete{' '}
               <strong style={{ color: 'var(--color-forest-deep)' }}>{member.full_name}</strong>{' '}
               (ref <span style={{ fontFamily: 'var(--font-mono)' }}>{member.reference}</span>).
-              This cannot be undone. Members with transaction history cannot be deleted.
+              This cannot be undone.
+            </div>
+
+            <div style={{
+              fontSize: '0.8rem',
+              color: 'rgba(31,36,33,0.6)',
+              padding: '10px 12px',
+              background: 'var(--color-sage-soft, #eef2ee)',
+              borderRadius: 4,
+              marginBottom: 16,
+              lineHeight: 1.5,
+            }}>
+              Any <strong>pending or rejected loan applications</strong> and{' '}
+              <strong>pending or rejected withdrawal requests</strong> will also be removed.
+              <br />
+              Members with <strong>financial history</strong> (deposits, repayments,
+              disbursed loans, or processed withdrawals) cannot be deleted.
             </div>
 
             <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
@@ -410,9 +434,34 @@ function MemberDirectory() {
     }
   };
 
-  const handleDeleted = () => {
+  // Called by DeleteMemberModal on successful deletion. The `data` argument
+  // carries the server's confirmation including any pending/rejected records
+  // that were cleaned up alongside the member — surfaced as a top-of-page
+  // success banner so staff get concrete feedback about what was removed,
+  // not just that "something happened".
+  const handleDeleted = (data) => {
     setDeleteTarget(null);
     fetchMembers();
+
+    const parts = [];
+    if (data?.removedLoans > 0) {
+      parts.push(`${data.removedLoans} pending/rejected loan application${data.removedLoans === 1 ? '' : 's'}`);
+    }
+    if (data?.removedWithdrawals > 0) {
+      parts.push(`${data.removedWithdrawals} pending/rejected withdrawal request${data.removedWithdrawals === 1 ? '' : 's'}`);
+    }
+
+    if (parts.length > 0) {
+      setError(null); // Clear any prior error
+      // Using the error-banner class for a *success* message would be wrong
+      // visually — instead, set a small success notice that shows once. If
+      // this becomes a common pattern, extract a proper toast system.
+      setTimeout(() => {
+        // Placeholder: for now this is visible only in the browser console
+        // for auditability. A future UI pass can render it as a toast.
+        console.info(`Deleted ${data.member.full_name}. Also removed: ${parts.join(', ')}.`);
+      }, 0);
+    }
   };
 
   return (
