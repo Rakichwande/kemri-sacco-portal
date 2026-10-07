@@ -37,8 +37,23 @@ function getCurrentRole() {
 const BOARD_STAFF_ROLES = ['admin', 'sacco_admin'];
 const DELETE_ROLES = ['admin', 'sacco_admin'];
 
+// Editable fields for the member edit form. phone_number is here (added
+// Oct 2026) because members change SIMs and staff must be able to update
+// records without direct SQL access. The backend normalizes any Kenyan
+// format to +254XXXXXXXXX and sends a confirmation SMS to both the old
+// and new numbers as a fraud-prevention measure. See
+// controllers/memberController.js's updateMember() for the full flow.
+//
+// id_number is NOT editable — it's a fixed identity field. Changing it
+// would break the audit trail linking the member to their original
+// registration.
+//
+// is_board_staff is NOT editable here — it has its own dedicated endpoint
+// (PATCH /api/members/:id/board-staff) gated on members:set_board_status,
+// accessible via the Make Board / Revoke Board links in the row actions.
 const EDITABLE_FIELDS = [
   { key: 'full_name', label: 'Full name', type: 'text' },
+  { key: 'phone_number', label: 'Phone number', type: 'text' },
   { key: 'nationality', label: 'Nationality', type: 'text' },
   { key: 'age', label: 'Age', type: 'number' },
   { key: 'employer', label: 'Employer', type: 'text' },
@@ -121,7 +136,11 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
               </div>
             </div>
 
-            {[...EDITABLE_FIELDS, { key: 'phone_number', label: 'Phone' }, { key: 'id_number', label: 'National ID' }].map((f) => (
+            {/* phone_number is now part of EDITABLE_FIELDS so it isn't
+                added separately here. id_number remains excluded from
+                EDITABLE_FIELDS (it's not editable) but still needs to
+                appear in the read-only View — added explicitly. */}
+            {[...EDITABLE_FIELDS, { key: 'id_number', label: 'National ID' }].map((f) => (
               <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
                 <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{f.label}</span>
                 <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{member[f.key] || '—'}</span>
@@ -155,6 +174,13 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
                 )}
               </div>
             ))}
+            {/* Helper text for phone edits — explains the SMS notification
+                that fires on save, so staff know what to expect. */}
+            {!isCreate && (
+              <div style={{ fontSize: '0.75rem', color: 'rgba(31,36,33,0.5)', marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
+                Changing the phone number sends a confirmation SMS to both the old and new numbers.
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
                 Cancel
@@ -436,9 +462,7 @@ function MemberDirectory() {
 
   // Called by DeleteMemberModal on successful deletion. The `data` argument
   // carries the server's confirmation including any pending/rejected records
-  // that were cleaned up alongside the member — surfaced as a top-of-page
-  // success banner so staff get concrete feedback about what was removed,
-  // not just that "something happened".
+  // that were cleaned up alongside the member.
   const handleDeleted = (data) => {
     setDeleteTarget(null);
     fetchMembers();
@@ -452,13 +476,8 @@ function MemberDirectory() {
     }
 
     if (parts.length > 0) {
-      setError(null); // Clear any prior error
-      // Using the error-banner class for a *success* message would be wrong
-      // visually — instead, set a small success notice that shows once. If
-      // this becomes a common pattern, extract a proper toast system.
+      setError(null);
       setTimeout(() => {
-        // Placeholder: for now this is visible only in the browser console
-        // for auditability. A future UI pass can render it as a toast.
         console.info(`Deleted ${data.member.full_name}. Also removed: ${parts.join(', ')}.`);
       }, 0);
     }
@@ -499,10 +518,6 @@ function MemberDirectory() {
                 <th>Employer</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Savings</th>
-                {/* Outstanding loan balance — the number staff need most when
-                    checking a member's current position. Sourced from
-                    members.total_outstanding_balance, which is maintained by
-                    markDisbursed (increment) and applyRepayment (decrement). */}
                 <th style={{ textAlign: 'right' }}>Outstanding</th>
                 <th>Loan</th>
                 <th>Actions</th>
@@ -540,10 +555,6 @@ function MemberDirectory() {
                       <button onClick={() => setStatementMemberId(m.id)} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         Statement
                       </button>
-                      {/* Performance opens a dedicated page rather than a
-                          modal — the credit report has too much content to
-                          fit comfortably in a dialog. Uses React Router's
-                          Link so the browser back button works naturally. */}
                       <Link to={`/admin/members/${m.id}/performance`} style={{ color: 'var(--color-forest)', fontSize: '0.82rem', textDecoration: 'underline' }}>
                         Performance
                       </Link>
