@@ -28,6 +28,16 @@ function formatKES(amount) {
 // Read-only detail panel, opened via the "Review" action. Approve/Reject/
 // Disburse stay as row-level actions on the table - this is purely for
 // seeing the full application before acting on it.
+//
+// Labels use standard SACCO accounting terminology:
+//   Principal             — amount borrowed
+//   Interest              — charge for the loan term
+//   Total amount payable  — principal + interest
+//   Amount outstanding    — remaining balance after partial payments
+//
+// The field names in the DB (total_repayment, monthly_installment,
+// outstanding_balance) are retained for compatibility — the labels shown
+// here are what staff should read.
 function ReviewModal({ loan, onClose }) {
   if (!loan) return null;
   const row = (label, value) => (
@@ -64,10 +74,10 @@ function ReviewModal({ loan, onClose }) {
         {row('Purpose', loan.purpose || '—')}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
-        {row('Term', `${loan.tenure_months} months`)}
-        {row('Total repayment', formatKES(loan.total_repayment))}
-        {row('Monthly installment', formatKES(loan.monthly_installment))}
-        {row('Outstanding balance', formatKES(loan.outstanding_balance))}
+        {/* Singular/plural: a 1-month loan shows "1 month", longer terms show "N months". */}
+        {row('Term', `${loan.tenure_months} ${loan.tenure_months === 1 ? 'month' : 'months'}`)}
+        {row('Total amount payable', formatKES(loan.total_repayment))}
+        {row('Amount outstanding', formatKES(loan.outstanding_balance))}
         {row('Applied', new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))}
         {loan.admin_notes && row('Admin notes', loan.admin_notes)}
 
