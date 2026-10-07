@@ -8,22 +8,14 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Loans shown on this page span the whole post-approval lifecycle:
-//   approved   → money hasn't moved; staff can disburse (auto or manual)
-//   disbursing → B2C request accepted by Safaricom, awaiting callback
-//   disbursed  → money sent; historical record
-//   repaid     → fully repaid; historical record
-//
-// Anything upstream of 'approved' (pending, rejected) belongs in the
-// Approval Queue — this page doesn't show those.
+// A loan is considered "stuck" if it's been in disbursing state longer
+// than this. Safaricom's B2C callbacks normally arrive in 5-30 seconds;
+// if nothing has come after 5 minutes, something has gone wrong and the
+// staff needs a manual override path.
+const STUCK_DISBURSEMENT_THRESHOLD_MS = 5 * 60 * 1000;
+
 const LIFECYCLE_STATUSES = ['approved', 'disbursing', 'disbursed', 'repaid'];
 
-
-// Manual disbursement modal. Staff have already sent the money to the
-// member themselves (via the M-Pesa app, bank transfer, whatever) and are
-// recording the receipt here. Kept as a separate modal rather than inline
-// because entering a receipt is a deliberate action — a modal makes the
-// commit explicit.
 function ManualDisbursementModal({ loan, onClose, onDisbursed }) {
   const [receipt, setReceipt] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -95,6 +87,166 @@ function ManualDisbursementModal({ loan, onClose, onDisbursed }) {
   );
 }
 
+// Stuck disbursement resolution modal. Shows when staff click "Resolve" on
+// a loan that's been in disbursing state for too long. Staff must have
+// already checked M-Pesa and know whether the member received the funds.
+function ResolveStuckModal({ loan, onClose, onResolved }) {
+  const [outcome, setOutcome] = useState('');
+  const [receipt, setReceipt] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Compute how long it's been stuck, for the header
+  const disbursingAt = loan.disbursing_at ? new Date(loan.disbursing_at) : null;
+  const minutesStuck = disbursingAt
+    ? Math.round((Date.now() - disbursingAt.getTime()) / 60000)
+    : null;
+
+  const canSubmit =
+    outcome === 'received' ? receipt.trim().length > 0 :
+    outcome === 'not_received' ? true :
+    false;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/api/loans/${loan.id}/resolve-disbursement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ outcome, receipt: receipt.trim() || null, reason: reason.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      onResolved(data);
+    } catch (err) {
+      setError(friendlyErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 500, maxWidth: '92vw', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: '#7a5a10', marginBottom: 4 }}>
+          Resolve stuck disbursement
+        </div>
+        <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
+          {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`} · {formatKES(loan.principal)} to {loan.member_name}
+          {minutesStuck !== null && ` · in disbursing for ${minutesStuck} minute${minutesStuck === 1 ? '' : 's'}`}
+        </div>
+
+        <div style={{ padding: 12, background: '#fbf3e6', border: '1px solid #e8d4a8', borderRadius: 4, fontSize: '0.82rem', color: '#7a5a10', marginBottom: 16, lineHeight: 1.5 }}>
+          Safaricom accepted this payout but never sent a result callback. <strong>Verify the outcome on M-Pesa before choosing.</strong> You can check the SACCO's B2C statement, or ask the member to confirm whether they received the funds.
+        </div>
+
+        {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          {/* Option 1 — received */}
+          <label style={{
+            display: 'block',
+            padding: 12,
+            border: `1px solid ${outcome === 'received' ? 'var(--color-forest)' : 'var(--color-line)'}`,
+            borderRadius: 4,
+            marginBottom: 10,
+            cursor: 'pointer',
+            background: outcome === 'received' ? 'var(--color-sage-soft, #eef2ee)' : '#fff',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: outcome === 'received' ? 10 : 0 }}>
+              <input
+                type="radio"
+                name="outcome"
+                value="received"
+                checked={outcome === 'received'}
+                onChange={(e) => setOutcome(e.target.value)}
+              />
+              <strong style={{ fontSize: '0.88rem' }}>The member received the funds</strong>
+            </div>
+            {outcome === 'received' && (
+              <>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  M-Pesa receipt *
+                </div>
+                <input
+                  type="text"
+                  value={receipt}
+                  onChange={(e) => setReceipt(e.target.value)}
+                  placeholder="e.g. SJK4X7Y2N1"
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-mono)' }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 6, lineHeight: 1.4 }}>
+                  The loan will be marked disbursed, the member's outstanding balance incremented, and a confirmation SMS sent.
+                </div>
+              </>
+            )}
+          </label>
+
+          {/* Option 2 — not received */}
+          <label style={{
+            display: 'block',
+            padding: 12,
+            border: `1px solid ${outcome === 'not_received' ? 'var(--color-forest)' : 'var(--color-line)'}`,
+            borderRadius: 4,
+            marginBottom: 16,
+            cursor: 'pointer',
+            background: outcome === 'not_received' ? 'var(--color-sage-soft, #eef2ee)' : '#fff',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: outcome === 'not_received' ? 10 : 0 }}>
+              <input
+                type="radio"
+                name="outcome"
+                value="not_received"
+                checked={outcome === 'not_received'}
+                onChange={(e) => setOutcome(e.target.value)}
+              />
+              <strong style={{ fontSize: '0.88rem' }}>The member did NOT receive the funds</strong>
+            </div>
+            {outcome === 'not_received' && (
+              <>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                  Reason (optional)
+                </div>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. insufficient balance on Safaricom, or confirmed on statement"
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 6, lineHeight: 1.4 }}>
+                  The loan will be rolled back to Approved. No balance change. Ready to retry from the portal.
+                </div>
+              </>
+            )}
+          </label>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit || submitting}
+              className="admin-btn admin-btn--approve"
+              style={{ flex: 1, opacity: canSubmit && !submitting ? 1 : 0.5 }}
+            >
+              {submitting ? 'Resolving…' : 'Confirm resolution'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DisbursementLog() {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,10 +254,9 @@ function DisbursementLog() {
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  // Which loan ID's B2C request is currently in flight (button-level spinner)
   const [b2cPendingId, setB2cPendingId] = useState(null);
-  // Which loan is being manually disbursed via the modal
   const [manualTarget, setManualTarget] = useState(null);
+  const [resolveTarget, setResolveTarget] = useState(null);
 
   const fetchLoans = async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -131,11 +282,8 @@ function DisbursementLog() {
 
   useEffect(() => { fetchLoans(); }, []);
 
-  // Poll every 5s while any loan is 'disbursing'. The B2C callback takes
-  // 5-30 seconds to resolve, and staff expect the row to update on its own
-  // rather than needing a manual refresh. The effect clears its interval
-  // the moment no disbursing loans remain, so the page doesn't poll
-  // indefinitely.
+  // Poll every 5s while any loan is 'disbursing'. This lets the row update
+  // automatically when the B2C callback arrives.
   const hasDisbursing = loans.some((l) => l.status === 'disbursing');
   useEffect(() => {
     if (!hasDisbursing) return undefined;
@@ -156,8 +304,6 @@ function DisbursementLog() {
       if (!res.ok) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
-      // Loan is now 'disbursing' — refetch so the row updates and the
-      // polling effect kicks in
       await fetchLoans(false);
     } catch (err) {
       setError(friendlyErrorMessage(err));
@@ -171,16 +317,17 @@ function DisbursementLog() {
     fetchLoans(false);
   };
 
+  const handleResolved = () => {
+    setResolveTarget(null);
+    fetchLoans(false);
+  };
+
   const filtered = loans.filter((l) => {
     if (search.trim()) {
       const q = search.toLowerCase();
       const matches = l.member_name?.toLowerCase().includes(q) || String(l.id).includes(q) || l.member_reference?.toLowerCase().includes(q);
       if (!matches) return false;
     }
-    // Date filters apply only to loans that have actually been disbursed.
-    // Loans still awaiting disbursement have no disbursed_at to filter on,
-    // and hiding them when a date range is set would make them impossible
-    // to action from this page.
     if (dateFrom && l.disbursed_at && new Date(l.disbursed_at) < new Date(dateFrom)) return false;
     if (dateTo && l.disbursed_at && new Date(l.disbursed_at) > new Date(dateTo + 'T23:59:59')) return false;
     return true;
@@ -192,20 +339,11 @@ function DisbursementLog() {
     setDateTo('');
   };
 
-  // Stats split by state so the operational picture is visible at a glance
   const awaiting = filtered.filter((l) => l.status === 'approved');
   const inFlight = filtered.filter((l) => l.status === 'disbursing');
   const completed = filtered.filter((l) => l.status === 'disbursed' || l.status === 'repaid');
   const totalDisbursed = completed.reduce((sum, l) => sum + Number(l.principal), 0);
 
-  // Total still owed across all currently-disbursed loans. Excludes repaid
-  // loans (they contribute 0 anyway) and loans not yet funded (approved /
-  // disbursing have an outstanding_balance field set at creation, but no
-  // money has moved, so counting them would overstate what the SACCO is
-  // waiting to receive).
-  //
-  // This is the "how much money is out there" number staff should watch.
-  // If it grows month over month, repayments are lagging disbursements.
   const totalOutstanding = completed
     .filter((l) => l.status === 'disbursed')
     .reduce((sum, l) => sum + Number(l.outstanding_balance || 0), 0);
@@ -221,12 +359,6 @@ function DisbursementLog() {
     return <span className="admin-badge" style={style}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
   };
 
-  // Renders the Remaining cell for a row. Three states:
-  //   approved / disbursing  → "—"  (money hasn't moved; showing a balance
-  //                                 would suggest the member owes something
-  //                                 when they don't yet)
-  //   disbursed with balance → red amount (still being repaid)
-  //   repaid                 → "Cleared" (green, settled)
   const remainingCell = (l) => {
     if (l.status === 'approved' || l.status === 'disbursing') {
       return <span style={{ color: 'rgba(31,36,33,0.3)' }}>—</span>;
@@ -238,13 +370,20 @@ function DisbursementLog() {
     return <span style={{ fontWeight: 500, color: 'var(--color-forest-deep)' }}>Cleared</span>;
   };
 
+  // Is this disbursing loan stuck? Compares disbursing_at against the
+  // threshold. Returns false if disbursing_at is missing (older loans
+  // that pre-date the column) — better to hide the Resolve link than
+  // show it based on unknown data.
+  const isStuck = (loan) => {
+    if (loan.status !== 'disbursing') return false;
+    if (!loan.disbursing_at) return false;
+    return (Date.now() - new Date(loan.disbursing_at).getTime()) > STUCK_DISBURSEMENT_THRESHOLD_MS;
+  };
+
   return (
     <AdminLayout title="Loan Disbursements" lede="Approve-to-disburse workflow — action approved loans, track in-flight B2C transfers, review completed disbursements.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
-      {/* Five stat cards — the fifth (Total Outstanding) is the recovery
-          figure: the sum of what all currently-disbursed loans still owe
-          back to the SACCO. Expands the grid to 5 columns. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 20 }}>
         <div className="admin-stat-card" style={{ '--stat-accent': '#7a5a10' }}>
           <div className="admin-stat-card__value">{awaiting.length}</div>
@@ -324,8 +463,6 @@ function DisbursementLog() {
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Term</th>
                 <th style={{ textAlign: 'right' }}>Monthly</th>
-                {/* Remaining = the loan's outstanding_balance. Only meaningful
-                    once money has moved, so approved/disbursing rows show "—". */}
                 <th style={{ textAlign: 'right' }}>Remaining</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -338,7 +475,7 @@ function DisbursementLog() {
                   <td style={{ fontWeight: 500 }}>{l.member_name}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{l.member_reference}</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.principal)}</td>
-                  <td>{l.tenure_months} mo</td>
+                  <td>{l.tenure_months} {l.tenure_months === 1 ? 'mo' : 'mo'}</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.monthly_installment)}</td>
                   <td style={{ textAlign: 'right' }}>{remainingCell(l)}</td>
                   <td>{statusBadge(l.status)}</td>
@@ -362,20 +499,30 @@ function DisbursementLog() {
                       </div>
                     )}
                     {l.status === 'disbursing' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#2a4a7a' }}>
-                        <span
-                          className="spin"
-                          style={{
-                            display: 'inline-block',
-                            width: 12,
-                            height: 12,
-                            border: '2px solid #dde7f5',
-                            borderTopColor: '#2a4a7a',
-                            borderRadius: '50%',
-                            animation: 'spin 0.9s linear infinite',
-                          }}
-                        />
-                        <span>Awaiting Safaricom confirmation…</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#2a4a7a' }}>
+                          <span
+                            className="spin"
+                            style={{
+                              display: 'inline-block',
+                              width: 12,
+                              height: 12,
+                              border: '2px solid #dde7f5',
+                              borderTopColor: '#2a4a7a',
+                              borderRadius: '50%',
+                              animation: 'spin 0.9s linear infinite',
+                            }}
+                          />
+                          <span>Awaiting Safaricom confirmation…</span>
+                        </div>
+                        {isStuck(l) && (
+                          <button
+                            onClick={() => setResolveTarget(l)}
+                            style={{ background: 'none', border: 'none', color: '#a13030', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
+                          >
+                            Stuck? Resolve manually →
+                          </button>
+                        )}
                       </div>
                     )}
                     {(l.status === 'disbursed' || l.status === 'repaid') && (
@@ -397,9 +544,14 @@ function DisbursementLog() {
         />
       )}
 
-      {/* Inline keyframes for the spinner. Placed here rather than in a
-          global stylesheet because it's the only place in the portal that
-          uses it; if that changes, move it to index.css. */}
+      {resolveTarget && (
+        <ResolveStuckModal
+          loan={resolveTarget}
+          onClose={() => setResolveTarget(null)}
+          onResolved={handleResolved}
+        />
+      )}
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
