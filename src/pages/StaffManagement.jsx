@@ -6,10 +6,20 @@ import { ROLES, assignableRolesFor } from '../constants/roles';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+// Default role preselected in the invite modal. Loans Officer is the
+// most common first invite for a SACCO staff member — the person who
+// will review and approve loans day to day. Overridden at render time
+// if the assigner doesn't have permission to grant that role.
+const PREFERRED_DEFAULT_ROLE = 'loans_officer';
+
 function InviteModal({ onClose, onSent, assignerRole }) {
   const options = assignableRolesFor(assignerRole);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState(options[0]?.value || 'staff');
+  const [role, setRole] = useState(() =>
+    options.some((r) => r.value === PREFERRED_DEFAULT_ROLE)
+      ? PREFERRED_DEFAULT_ROLE
+      : (options[0]?.value || 'loans_officer')
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -245,9 +255,9 @@ function StaffManagement() {
         background: 'var(--color-sage)', border: '1px solid var(--color-line)', borderRadius: 4,
         padding: '12px 16px', marginBottom: 20, fontSize: '0.85rem', color: 'var(--color-forest-deep)',
       }}>
-        Each role has a different scope of access — Super Administrator and SACCO Administrator have the
-        broadest access, while Finance Officer, Loans Officer, Member Support, and Auditor are scoped to
-        their area. Staff accounts are view-only.
+        Four roles are in use at KEMRI SACCO. Super Administrator and SACCO Administrator have the
+        broadest access. Loans Officer can review and approve loans; Finance Officer handles payments,
+        withdrawals, and financial reports. Each is scoped to its area.
       </div>
 
       {pendingInvites.length > 0 && (
