@@ -89,9 +89,18 @@ function AdminLayout({ title, lede, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(null);
+  // Mobile drawer state. Only relevant below 900px viewport; on wider
+  // screens the sidebar is always visible and this flag is ignored by CSS.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
+
+  // Close the mobile drawer whenever the route changes. Harmless on wide
+  // screens (the drawer isn't rendered there anyway).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   // Polls for pending loan applications so the count is visible on every
   // page, not just the Dashboard - a real-time push would need websockets,
@@ -118,7 +127,18 @@ function AdminLayout({ title, lede, children }) {
 
   return (
     <div className="admin-shell">
-      <aside className="admin-sidebar">
+      {/* Mobile-only overlay behind the drawer. Rendered only when the
+          drawer is open; hidden by CSS on wide screens. Clicking it closes
+          the drawer. */}
+      {sidebarOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`admin-sidebar${sidebarOpen ? ' is-open' : ''}`}>
         <div className="admin-sidebar__brand">
           <span className="admin-sidebar__brand-mark">🏦</span>
           <div>
@@ -135,7 +155,7 @@ function AdminLayout({ title, lede, children }) {
                 return (
                   <span key={item.label} className="admin-sidebar__link is-disabled">
                     <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
-                    {item.label}
+                    <span className="admin-sidebar__link-label">{item.label}</span>
                     <span className="admin-sidebar__link-badge">Soon</span>
                   </span>
                 );
@@ -145,9 +165,10 @@ function AdminLayout({ title, lede, children }) {
                   key={item.label}
                   to={item.to}
                   className={`admin-sidebar__link${isActive ? ' is-active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
-                  {item.label}
+                  <span className="admin-sidebar__link-label">{item.label}</span>
                 </Link>
               );
             })}
@@ -162,10 +183,24 @@ function AdminLayout({ title, lede, children }) {
 
       <div className="admin-main">
         <div className="admin-topbar">
-          <div className="admin-topbar__meta">
-            <span>{today}</span>
-            <span className="admin-topbar__status-dot" />
-            <span>Systems operational</span>
+          {/* Left cluster: hamburger (mobile only) + date/status. The
+              hamburger is display:none by default and only appears at
+              ≤900px via CSS. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <button
+              className="admin-hamburger"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
+            </button>
+            <div className="admin-topbar__meta">
+              <span>{today}</span>
+              <span className="admin-topbar__status-dot" />
+              <span>Systems operational</span>
+            </div>
           </div>
           <div className="admin-topbar__actions">
             {pendingCount > 0 && (

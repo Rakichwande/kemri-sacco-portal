@@ -456,6 +456,7 @@ main {
   padding: 16px 32px;
   background: #fff;
   border-bottom: 1px solid var(--color-line);
+  gap: 12px;
 }
 
 .admin-topbar__meta {
@@ -527,6 +528,10 @@ main {
   font-size: 1.6rem;
   font-weight: 600;
   color: var(--color-ink);
+  /* 2026-10-09: KES values and counts must never break mid-number across
+     lines. The responsive grid below guarantees enough width per card at
+     each breakpoint, so nowrap is safe. */
+  white-space: nowrap;
 }
 
 .admin-stat-card__label {
@@ -599,3 +604,135 @@ main {
 .admin-btn--reject:hover { background: rgba(163, 61, 47, 0.06); }
 .admin-btn--disburse { background: var(--color-gold); color: var(--color-forest-deep); }
 .admin-btn--disburse:hover { opacity: 0.9; }
+
+/* ============================================================
+   RESPONSIVE — added 2026-10-09
+   ============================================================ */
+
+/* Dashboard stat row: 7 cards is a prime-ish count that auto-fit handles
+   badly (either crams all 7 into one row with wrapped text, or leaves
+   orphan cards on the last row). Explicit breakpoints give predictable
+   layouts at each tier. The class name replaces the inline
+   gridTemplateColumns style that used to live in Dashboard.jsx.
+
+   Breakpoints:
+     >1600px  : 7 in one row (wide monitors)
+     ≤1600px  : 4 + 3 (typical laptop)
+     ≤900px   : 3 + 3 + 1
+     ≤600px   : 2 + 2 + 2 + 1 (mobile)
+*/
+.dashboard-stat-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+@media (max-width: 1600px) {
+  .dashboard-stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .dashboard-stat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .dashboard-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Mobile hamburger — hidden by default, only shown in the off-canvas
+   breakpoint below. */
+.admin-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Off-canvas sidebar overlay — rendered by AdminLayout only when the
+   sidebar is open on a narrow screen. */
+.admin-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 36, 33, 0.5);
+  z-index: 55;
+  animation: admin-fade-in 0.15s ease-out;
+}
+
+@keyframes admin-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Tablet & mobile: sidebar becomes an off-canvas drawer. */
+@media (max-width: 900px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    overflow-y: auto;
+    box-shadow: 2px 0 12px rgba(31, 36, 33, 0.15);
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .admin-hamburger {
+    display: flex;
+  }
+
+  .admin-content {
+    padding: 20px 16px;
+  }
+
+  .admin-topbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .admin-topbar__meta {
+    font-size: 0.78rem;
+    flex-wrap: wrap;
+  }
+
+  .admin-page-title {
+    font-size: 1.4rem;
+  }
+}
+
+/* Small mobile: table scrolls horizontally instead of crushing columns. */
+@media (max-width: 700px) {
+  .admin-table-card {
+    overflow-x: auto;
+  }
+
+  .admin-table {
+    min-width: 640px;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 12px;
+  }
+
+  /* Modals: constrain width, allow scrolling on tiny screens. */
+  .admin-stat-card__value {
+    font-size: 1.4rem;
+  }
+}
+
+/* Reduce the topbar's date line to just the essentials on very small
+   phones — the status text is decorative, the date is functional. */
+@media (max-width: 500px) {
+  .admin-topbar__meta span:nth-child(3) {
+    display: none;
+  }
+}

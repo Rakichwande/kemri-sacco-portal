@@ -58,13 +58,14 @@ function Dashboard() {
               - Principal Disbursed, Interest Earned, Repaid to Date: all-time
               - Repayments Received: this calendar month
               - Pending Applications: real-time count
-              Grid is auto-fit so cards wrap gracefully on narrow screens. */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-            gap: 12,
-            marginBottom: 24,
-          }}>
+
+              Grid layout (and its responsive breakpoints) lives in
+              styles.css under .dashboard-stat-row. Previously this used
+              inline gridTemplateColumns with auto-fit, which crams all 7
+              cards into one row at ~1400px and forces KES values to wrap
+              mid-number. Explicit breakpoints in CSS give predictable
+              layouts: 7 / 4+3 / 3+3+1 / 2+2+2+1. */}
+          <div className="dashboard-stat-row">
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{summary.totalMembers}</div>
               <div className="admin-stat-card__label">Total Members</div>
