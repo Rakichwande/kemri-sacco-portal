@@ -14,6 +14,10 @@ function formatKES(amount) {
 // readable instead of being flattened by a large one (e.g. accumulated
 // contributions). Compact by design: 100px bars, no per-bar tooltip chrome
 // beyond the browser's native title attribute.
+//
+// NOTE (2026-10-09): Phase 3 will replace the three MiniTrend charts with
+// a single combined grouped-bar chart (Loans / Repayments / Interest).
+// Kept as-is for now because Interest needs Phase 2's schema split first.
 function MiniTrend({ title, accent, data, valueKey }) {
   const values = data.map((d) => d[valueKey] || 0);
   const max = Math.max(...values, 1);
@@ -98,6 +102,10 @@ function Dashboard() {
         <LoadingState />
       ) : summary ? (
         <>
+          {/* NOTE (2026-10-09): Phase 3 will replace this 4-card row with
+              a 7-card row: Total Members, Total Savings, Principal Disbursed,
+              Repayments Received, Interest Earned, Repaid to Date,
+              Pending Applications. Waiting on Phase 2 (schema) first. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{summary.totalMembers}</div>
@@ -120,7 +128,9 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Financial Trends - one card, three mini charts side-by-side */}
+          {/* Financial Trends - one card, three mini charts side-by-side.
+              Phase 3 will collapse these into one combined grouped-bar chart
+              (Loans / Repayments / Interest). */}
           <div className="admin-table-card" style={{ padding: 24, marginBottom: 24 }}>
             <div style={{
               fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600,
@@ -214,13 +224,8 @@ function Dashboard() {
                 }}>
                   Review Approval Queue <span>→</span>
                 </Link>
-                <Link to="/admin/withdrawals" style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,
-                  textDecoration: 'none', color: 'var(--color-ink)', fontSize: '0.88rem',
-                }}>
-                  Process Withdrawals <span>→</span>
-                </Link>
+                {/* 2026-10-09: "Process Withdrawals" quick action removed —
+                    withdrawal feature retired per board instruction. */}
                 <Link to="/admin/audit-trail" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,

@@ -17,7 +17,6 @@ import FinancialReports from './pages/FinancialReports';
 import DataImport from './pages/DataImport';
 import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
-import WithdrawalQueue from './pages/WithdrawalQueue';
 import LoanAgingReport from './pages/LoanAgingReport';
 
 function ProtectedRoute({ children }) {
@@ -78,11 +77,9 @@ function AppRoutes() {
           <ContributionLogs />
         </ProtectedRoute>
       } />
-      <Route path="/admin/withdrawals" element={
-        <ProtectedRoute>
-          <WithdrawalQueue />
-        </ProtectedRoute>
-      } />
+      {/* 2026-10-09: Withdrawal feature retired per board instruction.
+          Route removed; withdrawals table retained as archive.
+          See AdminLayout.jsx for the sidebar note. */}
       <Route path="/admin/staff" element={
         <ProtectedRoute>
           <StaffManagement />
