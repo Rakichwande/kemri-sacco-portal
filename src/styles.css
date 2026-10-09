@@ -790,3 +790,23 @@ main {
     font-size: 0.78rem !important;
   }
 }
+
+/* ============================================================
+   RESPONSIVE — part 3, added 2026-10-09
+   Member Performance stat row (6 cards: Total Borrowed, Total Repaid,
+   Principal Repaid, Interest Paid, Current Outstanding, Loans Fully
+   Repaid). Same explicit-breakpoint pattern as .dashboard-stat-row and
+   .queue-stat-row.
+   ============================================================ */
+.performance-stat-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 20px;
+}
+@media (max-width: 1600px) {
+  .performance-stat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .performance-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

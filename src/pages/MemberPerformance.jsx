@@ -66,12 +66,7 @@ function MemberPerformance() {
 
   return (
     <AdminLayout>
-      {/*
-        Print stylesheet. Uses print-hide on elements that must not appear
-        on paper (back link, action buttons), and hides the admin chrome
-        (sidebar, topbar) so the printed page is a clean report.
-      */}
-            <style>{`
+      <style>{`
         .print-only { display: none; }
         @media print {
           body * { visibility: hidden; }
@@ -110,8 +105,7 @@ function MemberPerformance() {
       ) : (
         <div className="member-performance print-area">
 
-          {/* Printable report header — hidden on screen because AdminLayout
-              already renders the shell. On paper this is the only title. */}
+          {/* Printable report header — hidden on screen. */}
           <div className="print-only" style={{ textAlign: 'center', marginBottom: 20, borderBottom: '1px solid #ccc', paddingBottom: 12 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 600 }}>
               KEMRI SACCO
@@ -136,9 +130,7 @@ function MemberPerformance() {
             </button>
           </div>
 
-          {/* On-screen page title (AdminLayout doesn't get one for this
-              route, so we render it here — hidden on print to avoid
-              duplicating the printable header above) */}
+          {/* On-screen page title */}
           <div className="print-hide" style={{ marginBottom: 20 }}>
             <h1 className="admin-page-title">Member Performance</h1>
             <p className="admin-page-lede">
@@ -181,21 +173,41 @@ function MemberPerformance() {
             </div>
           </div>
 
-          {/* ─── LIFETIME SUMMARY CARDS ─── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+          {/* ─── LIFETIME TOTALS — 6 cards ───
+              Reorganized 2026-10-09: Principal and Interest each get their
+              own card (previously they were buried in a "Repayment
+              Breakdown" panel that duplicated Total Repaid). The panel is
+              gone; its content now lives here.
+
+              Layout breakpoints in styles.css under .performance-stat-row:
+              6-across on wide screens, 3+3 on laptop, 2+2+2 on mobile. */}
+          <div className="performance-stat-row">
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{formatKES(report.summary.total_borrowed)}</div>
-              <div className="admin-stat-card__label">Total Borrowed (Lifetime)</div>
+              <div className="admin-stat-card__label">Total Borrowed</div>
             </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-forest)' }}>
               <div className="admin-stat-card__value">{formatKES(report.summary.total_repaid)}</div>
               <div className="admin-stat-card__label">Total Repaid</div>
             </div>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
+              <div className="admin-stat-card__value">{formatKES(report.summary.total_principal_paid || 0)}</div>
+              <div className="admin-stat-card__label">Principal Repaid</div>
+            </div>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': '#1f5e3a' }}>
+              <div className="admin-stat-card__value">{formatKES(report.summary.total_interest_paid || 0)}</div>
+              <div className="admin-stat-card__label">Interest Paid</div>
+            </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': '#a13030' }}>
               <div className="admin-stat-card__value">{formatKES(report.summary.current_outstanding)}</div>
               <div className="admin-stat-card__label">Current Outstanding</div>
             </div>
-            <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': '#0b6e99' }}>
               <div className="admin-stat-card__value">{report.summary.loans_repaid}</div>
               <div className="admin-stat-card__label">Loans Fully Repaid</div>
             </div>
@@ -237,7 +249,7 @@ function MemberPerformance() {
             )}
           </div>
 
-          {/* ─── FINANCIAL POSITION ─── */}
+          {/* ─── CURRENT POSITION ─── */}
           <div className="admin-table-card" style={{ padding: 20, marginBottom: 20 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, marginBottom: 12, color: 'var(--color-forest-deep)' }}>
               Current Position
@@ -267,56 +279,6 @@ function MemberPerformance() {
             </div>
           </div>
 
-          {/* ─── LIFETIME REPAYMENT BREAKDOWN ───
-              Added 2026-10-09 (Phase 4). Splits the lifetime Total Repaid
-              figure into principal vs interest. Sourced from
-              summary.total_principal_paid / summary.total_interest_paid —
-              the backend aggregates these from the repayments ledger's
-              Phase 2 split columns. Hidden entirely when the member has
-              never made a repayment, so pure savers don't see empty zeros. */}
-          {Number(report.summary.total_repaid) > 0 && (
-            <div className="admin-table-card" style={{ padding: 20, marginBottom: 20 }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, marginBottom: 12, color: 'var(--color-forest-deep)' }}>
-                Repayment Breakdown
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
-                    Principal Repaid
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600 }}>
-                    {formatKES(report.summary.total_principal_paid || 0)}
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
-                    Reduces the amount owed
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
-                    Interest Paid
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600, color: '#1f5e3a' }}>
-                    {formatKES(report.summary.total_interest_paid || 0)}
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
-                    Cost of borrowing
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
-                    Total Repaid
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600 }}>
-                    {formatKES(report.summary.total_repaid)}
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
-                    Principal + interest
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ─── LOAN HISTORY ─── */}
           <div className="admin-table-card">
             <div style={{ padding: '16px 20px 4px' }}>
@@ -345,9 +307,6 @@ function MemberPerformance() {
                 </thead>
                 <tbody>
                   {report.loans.map((loan) => {
-                    // Show split sub-line only when there's something to
-                    // split — hides on pending/rejected loans that never
-                    // had money move, and on approved-but-not-disbursed.
                     const hasSplit =
                       Number(loan.amount_paid) > 0 &&
                       (Number(loan.principal_paid) > 0 || Number(loan.interest_paid) > 0);
