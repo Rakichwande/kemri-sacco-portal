@@ -70,23 +70,10 @@ function MemberPerformance() {
         Print stylesheet. Uses print-hide on elements that must not appear
         on paper (back link, action buttons), and hides the admin chrome
         (sidebar, topbar) so the printed page is a clean report.
-
-        print-only elements appear only in the printed output — used here
-        for a report header that would be redundant on screen (the
-        AdminLayout already provides a page shell).
       */}
             <style>{`
         .print-only { display: none; }
         @media print {
-          /* Classic "print only this section" pattern: hide everything
-             by visibility (not display, so absolute positioning still
-             works), then reveal the report and its descendants.
-
-             The previous approach hid the sidebar and topbar by class,
-             but the surrounding .admin-shell layout still reserved the
-             sidebar's column, pushing the content off the printable
-             area. This technique ignores the surrounding layout
-             entirely. */
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
           .print-area {
@@ -97,20 +84,15 @@ function MemberPerformance() {
             padding: 0;
           }
 
-          /* Print-friendly boxes — default browser printing strips
-             backgrounds, which makes the table header row and stat cards
-             unreadable. Restore a thin border on the cards. */
           .admin-table-card {
             box-shadow: none !important;
             border: 1px solid #c0c0c0 !important;
             background: #fff !important;
           }
 
-          /* The print header appears; the on-screen controls don't. */
           .print-only { display: block !important; }
           .print-hide { display: none !important; }
 
-          /* Ensure colours print for the status badges (green, red). */
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
           @page { margin: 15mm; }
@@ -250,7 +232,7 @@ function MemberPerformance() {
             </div>
             {report.summary.loans_repaid > 0 && (
               <div style={{ marginTop: 14, fontSize: '0.78rem', color: 'rgba(31,36,33,0.5)' }}>
-                "On time" means the loan was fully repaid within its tenure ({report.loans[0]?.tenure_months || 6} months) plus a 7-day grace period.
+                "On time" means the loan was fully repaid within its tenure ({report.loans[0]?.tenure_months || 1} month{report.loans[0]?.tenure_months === 1 ? '' : 's'}) plus a 7-day grace period.
               </div>
             )}
           </div>
@@ -285,6 +267,56 @@ function MemberPerformance() {
             </div>
           </div>
 
+          {/* ─── LIFETIME REPAYMENT BREAKDOWN ───
+              Added 2026-10-09 (Phase 4). Splits the lifetime Total Repaid
+              figure into principal vs interest. Sourced from
+              summary.total_principal_paid / summary.total_interest_paid —
+              the backend aggregates these from the repayments ledger's
+              Phase 2 split columns. Hidden entirely when the member has
+              never made a repayment, so pure savers don't see empty zeros. */}
+          {Number(report.summary.total_repaid) > 0 && (
+            <div className="admin-table-card" style={{ padding: 20, marginBottom: 20 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, marginBottom: 12, color: 'var(--color-forest-deep)' }}>
+                Repayment Breakdown
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                    Principal Repaid
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600 }}>
+                    {formatKES(report.summary.total_principal_paid || 0)}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
+                    Reduces the amount owed
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                    Interest Paid
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600, color: '#1f5e3a' }}>
+                    {formatKES(report.summary.total_interest_paid || 0)}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
+                    Cost of borrowing
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+                    Total Repaid
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 600 }}>
+                    {formatKES(report.summary.total_repaid)}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.45)', marginTop: 2 }}>
+                    Principal + interest
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── LOAN HISTORY ─── */}
           <div className="admin-table-card">
             <div style={{ padding: '16px 20px 4px' }}>
@@ -312,37 +344,58 @@ function MemberPerformance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.loans.map((loan) => (
-                    <tr key={loan.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--color-forest-deep)' }}>
-                        {loan.reference}
-                      </td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(loan.principal)}</td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(loan.amount_paid)}</td>
-                      <td style={{
-                        textAlign: 'right', fontFamily: 'var(--font-mono)',
-                        color: loan.outstanding_balance > 0 ? '#a13030' : 'rgba(31,36,33,0.4)',
-                      }}>
-                        {loan.outstanding_balance > 0 ? formatKES(loan.outstanding_balance) : '—'}
-                      </td>
-                      <td>{loan.tenure_months} mo</td>
-                      <td style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{formatDate(loan.applied_at)}</td>
-                      <td style={{ fontSize: '0.82rem' }}>
-                        {loan.days_to_repay !== null
-                          ? `${loan.days_to_repay}d`
-                          : loan.status === 'disbursed'
-                            ? 'In progress'
-                            : '—'}
-                        {loan.on_time === true && (
-                          <span style={{ color: 'var(--color-forest-deep)', marginLeft: 6, fontSize: '0.72rem' }}>on-time</span>
-                        )}
-                        {loan.on_time === false && (
-                          <span style={{ color: '#a13030', marginLeft: 6, fontSize: '0.72rem' }}>late</span>
-                        )}
-                      </td>
-                      <td>{statusBadge(loan.status)}</td>
-                    </tr>
-                  ))}
+                  {report.loans.map((loan) => {
+                    // Show split sub-line only when there's something to
+                    // split — hides on pending/rejected loans that never
+                    // had money move, and on approved-but-not-disbursed.
+                    const hasSplit =
+                      Number(loan.amount_paid) > 0 &&
+                      (Number(loan.principal_paid) > 0 || Number(loan.interest_paid) > 0);
+
+                    return (
+                      <tr key={loan.id}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--color-forest-deep)' }}>
+                          {loan.reference}
+                        </td>
+                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(loan.principal)}</td>
+                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                          <div>{formatKES(loan.amount_paid)}</div>
+                          {hasSplit && (
+                            <div style={{
+                              fontSize: '0.68rem',
+                              color: 'rgba(31,36,33,0.5)',
+                              marginTop: 2,
+                              fontWeight: 400,
+                            }}>
+                              P&nbsp;{formatKES(loan.principal_paid || 0)} · I&nbsp;{formatKES(loan.interest_paid || 0)}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{
+                          textAlign: 'right', fontFamily: 'var(--font-mono)',
+                          color: loan.outstanding_balance > 0 ? '#a13030' : 'rgba(31,36,33,0.4)',
+                        }}>
+                          {loan.outstanding_balance > 0 ? formatKES(loan.outstanding_balance) : '—'}
+                        </td>
+                        <td>{loan.tenure_months} mo</td>
+                        <td style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{formatDate(loan.applied_at)}</td>
+                        <td style={{ fontSize: '0.82rem' }}>
+                          {loan.days_to_repay !== null
+                            ? `${loan.days_to_repay}d`
+                            : loan.status === 'disbursed'
+                              ? 'In progress'
+                              : '—'}
+                          {loan.on_time === true && (
+                            <span style={{ color: 'var(--color-forest-deep)', marginLeft: 6, fontSize: '0.72rem' }}>on-time</span>
+                          )}
+                          {loan.on_time === false && (
+                            <span style={{ color: '#a13030', marginLeft: 6, fontSize: '0.72rem' }}>late</span>
+                          )}
+                        </td>
+                        <td>{statusBadge(loan.status)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
