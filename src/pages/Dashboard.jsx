@@ -2,67 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import CombinedTrend from '../components/CombinedTrend';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
-}
-
-// Single-series mini bar chart. Each series gets its own scale (its own
-// max), so a low-volume series (e.g. early loan disbursements) stays
-// readable instead of being flattened by a large one (e.g. accumulated
-// contributions). Compact by design: 100px bars, no per-bar tooltip chrome
-// beyond the browser's native title attribute.
-//
-// NOTE (2026-10-09): Phase 3 will replace the three MiniTrend charts with
-// a single combined grouped-bar chart (Loans / Repayments / Interest).
-// Kept as-is for now because Interest needs Phase 2's schema split first.
-function MiniTrend({ title, accent, data, valueKey }) {
-  const values = data.map((d) => d[valueKey] || 0);
-  const max = Math.max(...values, 1);
-  const total = values.reduce((a, b) => a + b, 0);
-  const peak = Math.max(...values);
-  const hasAnyActivity = values.some((v) => v > 0);
-
-  return (
-    <div>
-      <div style={{
-        fontSize: '0.88rem', fontWeight: 600,
-        color: 'var(--color-forest-deep)', marginBottom: 2,
-      }}>
-        {title}
-      </div>
-      <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginBottom: 12 }}>
-        {hasAnyActivity
-          ? `${formatKES(total)} · peak ${formatKES(peak)}`
-          : 'No activity in the last 6 months'}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 100, padding: '0 2px' }}>
-        {data.map((d) => {
-          const value = d[valueKey] || 0;
-          const height = Math.max((value / max) * 100, value > 0 ? 5 : 2);
-          return (
-            <div key={d.label} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 6,
-            }}>
-              <div
-                title={formatKES(value)}
-                style={{
-                  width: '80%', maxWidth: 22, height,
-                  background: value > 0 ? accent : 'var(--color-line)',
-                  borderRadius: '3px 3px 0 0',
-                }}
-              />
-              <div style={{ fontSize: '0.68rem', color: 'rgba(31,36,33,0.5)' }}>{d.label}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 function Dashboard() {
@@ -94,6 +39,12 @@ function Dashboard() {
     fetchSummary();
   }, []);
 
+  // This month's repayments, pulled from the last entry of the monthly
+  // series (the array always ends with the current month).
+  const thisMonthRepayments = summary?.monthlySeries?.length
+    ? summary.monthlySeries[summary.monthlySeries.length - 1].repayments
+    : 0;
+
   return (
     <AdminLayout title="Dashboard" lede="SACCO-wide overview.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
@@ -102,35 +53,63 @@ function Dashboard() {
         <LoadingState />
       ) : summary ? (
         <>
-          {/* NOTE (2026-10-09): Phase 3 will replace this 4-card row with
-              a 7-card row: Total Members, Total Savings, Principal Disbursed,
-              Repayments Received, Interest Earned, Repaid to Date,
-              Pending Applications. Waiting on Phase 2 (schema) first. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {/* Seven-card stat row.
+              - Members, Savings: structural totals
+              - Principal Disbursed, Interest Earned, Repaid to Date: all-time
+              - Repayments Received: this calendar month
+              - Pending Applications: real-time count
+              Grid is auto-fit so cards wrap gracefully on narrow screens. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 12,
+            marginBottom: 24,
+          }}>
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{summary.totalMembers}</div>
               <div className="admin-stat-card__label">Total Members</div>
             </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-forest)' }}>
               <div className="admin-stat-card__value">{formatKES(summary.totalSavings)}</div>
               <div className="admin-stat-card__label">Total Savings Held</div>
             </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
-              <div className="admin-stat-card__value">{formatKES(summary.loansOutstanding)}</div>
-              <div className="admin-stat-card__label">Loans Outstanding</div>
+              <div className="admin-stat-card__value">{formatKES(summary.principalDisbursed)}</div>
+              <div className="admin-stat-card__label">Principal Disbursed</div>
+            </div>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
+              <div className="admin-stat-card__value">{formatKES(thisMonthRepayments)}</div>
+              <div className="admin-stat-card__label">Repayments Received</div>
               <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
-                {formatKES(summary.repaidToDate)} repaid to date
+                This month
               </div>
             </div>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': '#1f5e3a' }}>
+              <div className="admin-stat-card__value">{formatKES(summary.interestEarned)}</div>
+              <div className="admin-stat-card__label">Interest Earned</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
+                {formatKES(summary.interestCollected)} collected
+              </div>
+            </div>
+
+            <div className="admin-stat-card" style={{ '--stat-accent': '#0b6e99' }}>
+              <div className="admin-stat-card__value">{formatKES(summary.repaidToDate)}</div>
+              <div className="admin-stat-card__label">Repaid to Date</div>
+            </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
               <div className="admin-stat-card__value">{summary.pendingApplications}</div>
               <div className="admin-stat-card__label">Pending Applications</div>
             </div>
           </div>
 
-          {/* Financial Trends - one card, three mini charts side-by-side.
-              Phase 3 will collapse these into one combined grouped-bar chart
-              (Loans / Repayments / Interest). */}
+          {/* Financial Trends - Loans vs Repayments vs Interest, one combined
+              chart. Replaces the three separate MiniTrend charts that used to
+              occupy this card. */}
           <div className="admin-table-card" style={{ padding: 24, marginBottom: 24 }}>
             <div style={{
               fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600,
@@ -139,29 +118,10 @@ function Dashboard() {
               Financial Trends
             </div>
             <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 20 }}>
-              Last 6 months.
+              Last 6 months. Loans vs Repayments vs Interest.
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
-              <MiniTrend
-                title="Contributions"
-                accent="var(--color-forest)"
-                data={summary.monthlySeries}
-                valueKey="contributions"
-              />
-              <MiniTrend
-                title="Loans Disbursed"
-                accent="#55308a"
-                data={summary.monthlySeries}
-                valueKey="loans"
-              />
-              <MiniTrend
-                title="Repayments"
-                accent="var(--color-gold)"
-                data={summary.monthlySeries}
-                valueKey="repayments"
-              />
-            </div>
+            <CombinedTrend data={summary.monthlySeries} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
@@ -224,8 +184,6 @@ function Dashboard() {
                 }}>
                   Review Approval Queue <span>→</span>
                 </Link>
-                {/* 2026-10-09: "Process Withdrawals" quick action removed —
-                    withdrawal feature retired per board instruction. */}
                 <Link to="/admin/audit-trail" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 14px', border: '1px solid var(--color-line)', borderRadius: 4,
