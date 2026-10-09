@@ -31,13 +31,10 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Stable across renders, so it's safe to call inside useCallback without
-// becoming a dependency.
 function getToken() {
   return localStorage.getItem('token');
 }
 
-// Small refresh icon. currentColor lets it inherit the button's text color.
 function RefreshIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,7 +44,6 @@ function RefreshIcon() {
   );
 }
 
-// Read-only detail panel, opened via the "Review" action.
 function ReviewModal({ loan, onClose }) {
   if (!loan) return null;
   const row = (label, value) => (
@@ -114,13 +110,8 @@ function AdminLoans() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Interval handle lives in a ref so visibility pause/resume doesn't need
-  // to tear down and rebuild the useEffect (which would restart the initial
-  // fetch every time the tab was re-focused).
   const pollRef = useRef(null);
 
-  // Single fetch path. `silent=true` skips the loading spinner — used for
-  // background polls and post-action refreshes, so the table never flashes.
   const refreshLoans = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setLoading(true);
@@ -147,22 +138,15 @@ function AdminLoans() {
         rejected: data.filter((l) => l.status === 'rejected').length,
       });
       setLastUpdated(Date.now());
-      // Clear any stale error banner on a successful silent refresh — the
-      // issue that showed the banner is by definition resolved.
       if (silent) setError(null);
     } catch (err) {
       console.error('Fetch loans error:', err);
-      // A failed background poll should not spray an error banner over a
-      // table the user is actively reading. Surface only on initial load;
-      // the "Updated Xs ago" ticker naturally showing an old time is the
-      // passive signal that something's stale.
       if (!silent) setError(friendlyErrorMessage(err));
     } finally {
       if (!silent) setLoading(false);
     }
   }, []);
 
-  // Initial load + background polling.
   useEffect(() => {
     refreshLoans();
 
@@ -179,9 +163,6 @@ function AdminLoans() {
       }
     };
 
-    // Pause polling when the tab is hidden (backgrounded, minimised, on
-    // another browser tab). Resume + immediate refresh on return so the
-    // user never sees stale data after switching back.
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         refreshLoans({ silent: true });
@@ -202,8 +183,6 @@ function AdminLoans() {
     };
   }, [refreshLoans]);
 
-  // "Updated Xs ago" ticker — recomputes every second so the display stays
-  // honest. Cheap, single state update, no network.
   useEffect(() => {
     if (!lastUpdated) return;
     const tick = () => setSecondsAgo(Math.floor((Date.now() - lastUpdated) / 1000));
@@ -231,7 +210,6 @@ function AdminLoans() {
         const err = await res.json();
         throw new Error(err.error || 'Failed to approve');
       }
-      // Silent refresh — the row moves tabs; the table updates in place.
       refreshLoans({ silent: true });
     } catch (err) {
       alert('Error: ' + err.message);
@@ -285,7 +263,6 @@ function AdminLoans() {
   const visibleLoans = activeTab === 'all' ? loans : loans.filter((l) => l.status === activeTab);
   const tabCount = (key) => key === 'all' ? stats.total : stats[key];
 
-  // Human-friendly "Updated 12s ago" / "Updated 2m ago" / "just now"
   const lastUpdatedText = (() => {
     if (!lastUpdated) return '';
     if (secondsAgo < 5) return 'Updated just now';
@@ -308,9 +285,6 @@ function AdminLoans() {
         </div>
       )}
 
-      {/* Freshness bar — shows how stale the list is, and gives staff a
-          manual refresh for the impatient case. Auto-refresh runs every
-          ${POLL_INTERVAL_MS/1000}s regardless. */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 12, fontSize: '0.78rem', color: 'rgba(31,36,33,0.5)',
@@ -333,7 +307,8 @@ function AdminLoans() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 24 }}>
+      {/* Responsive stat grid — see .queue-stat-row in styles.css. */}
+      <div className="queue-stat-row">
         {STATS_CONFIG.map((s) => (
           <div className="admin-stat-card" style={{ '--stat-accent': s.accent }} key={s.key}>
             <div className="admin-stat-card__value">{stats[s.key]}</div>
@@ -350,7 +325,9 @@ function AdminLoans() {
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {/* Responsive tabs — see .queue-tabs in styles.css. Wraps on
+              narrow screens instead of overflowing. */}
+          <div className="queue-tabs">
             {TABS.map((tab) => (
               <button
                 key={tab.key}

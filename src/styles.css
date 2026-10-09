@@ -736,3 +736,57 @@ main {
     display: none;
   }
 }
+
+/* ============================================================
+   RESPONSIVE — part 2, added 2026-10-09
+   Additional page-specific grids (Dashboard two-column,
+   AdminLoans stat row and tabs).
+   ============================================================ */
+
+/* Dashboard: the "Recent Pending Applications" + "Staff Quick Actions"
+   section. Two-thirds / one-third split on desktop, stacking vertically
+   on narrower screens so neither column gets crushed. */
+.dashboard-two-col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .dashboard-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* AdminLoans (Approval Queue): 6 stats — same treatment as the dashboard
+   card row. 6 across on wide, 3+3 on laptop, 2+2+2 on mobile. */
+.queue-stat-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+@media (max-width: 1400px) {
+  .queue-stat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .queue-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* AdminLoans: the filter tabs (Pending / Approved / ...). These carry a
+   count in each label — e.g. "Pending (1)" — so the row genuinely
+   overflows a narrow phone at default padding. Wrap gracefully and shrink
+   the padding at ≤600px. The !important is needed because the buttons
+   set their padding inline in JSX; this is the one place in the codebase
+   where a small override is cleaner than prop-drilling a style object. */
+.queue-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+@media (max-width: 600px) {
+  .queue-tabs button {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+  }
+}
