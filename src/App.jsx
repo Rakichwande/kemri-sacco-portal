@@ -18,6 +18,7 @@ import DataImport from './pages/DataImport';
 import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
 import LoanAgingReport from './pages/LoanAgingReport';
+import LoanIncome from './pages/LoanIncome';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -70,6 +71,14 @@ function AppRoutes() {
       <Route path="/admin/repayments" element={
         <ProtectedRoute>
           <RepaymentHistory />
+        </ProtectedRoute>
+      } />
+      {/* Loan Income — per-loan breakdown of principal, expected interest,
+          and repaid-to-date. Under "Loans" in the sidebar. Added
+          2026-10-09 (Phase 4). */}
+      <Route path="/admin/income" element={
+        <ProtectedRoute>
+          <LoanIncome />
         </ProtectedRoute>
       } />
       <Route path="/admin/contributions" element={
