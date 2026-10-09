@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Background refresh cadence. 20s is deliberately gentler than the 5s
+// DisbursementLog uses for B2C-in-flight loans: applications arrive at
+// human pace, so there's no callback window to catch, and hammering the
+// endpoint would waste requests.
+const POLL_INTERVAL_MS = 20000;
 
 const STATS_CONFIG = [
   { key: 'total', label: 'Total Loans', accent: 'var(--color-ink)' },
@@ -25,19 +31,23 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Read-only detail panel, opened via the "Review" action. Approve/Reject/
-// Disburse stay as row-level actions on the table - this is purely for
-// seeing the full application before acting on it.
-//
-// Labels use standard SACCO accounting terminology:
-//   Principal             — amount borrowed
-//   Interest              — charge for the loan term
-//   Total amount payable  — principal + interest
-//   Amount outstanding    — remaining balance after partial payments
-//
-// The field names in the DB (total_repayment, monthly_installment,
-// outstanding_balance) are retained for compatibility — the labels shown
-// here are what staff should read.
+// Stable across renders, so it's safe to call inside useCallback without
+// becoming a dependency.
+function getToken() {
+  return localStorage.getItem('token');
+}
+
+// Small refresh icon. currentColor lets it inherit the button's text color.
+function RefreshIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M23 4v6h-6M1 20v-6h6" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+    </svg>
+  );
+}
+
+// Read-only detail panel, opened via the "Review" action.
 function ReviewModal({ loan, onClose }) {
   if (!loan) return null;
   const row = (label, value) => (
@@ -74,7 +84,6 @@ function ReviewModal({ loan, onClose }) {
         {row('Purpose', loan.purpose || '—')}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
-        {/* Singular/plural: a 1-month loan shows "1 month", longer terms show "N months". */}
         {row('Term', `${loan.tenure_months} ${loan.tenure_months === 1 ? 'month' : 'months'}`)}
         {row('Total amount payable', formatKES(loan.total_repayment))}
         {row('Amount outstanding', formatKES(loan.outstanding_balance))}
@@ -101,12 +110,22 @@ function AdminLoans() {
   const [receipt, setReceipt] = useState({});
   const [reviewing, setReviewing] = useState(null);
   const [activeTab, setActiveTab] = useState('pending');
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const getToken = () => localStorage.getItem('token');
+  // Interval handle lives in a ref so visibility pause/resume doesn't need
+  // to tear down and rebuild the useEffect (which would restart the initial
+  // fetch every time the tab was re-focused).
+  const pollRef = useRef(null);
 
-  const fetchLoans = async () => {
-    setLoading(true);
-    setError(null);
+  // Single fetch path. `silent=true` skips the loading spinner — used for
+  // background polls and post-action refreshes, so the table never flashes.
+  const refreshLoans = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const token = getToken();
       if (!token) throw new Error('No token found');
@@ -127,15 +146,77 @@ function AdminLoans() {
         repaid: data.filter((l) => l.status === 'repaid').length,
         rejected: data.filter((l) => l.status === 'rejected').length,
       });
+      setLastUpdated(Date.now());
+      // Clear any stale error banner on a successful silent refresh — the
+      // issue that showed the banner is by definition resolved.
+      if (silent) setError(null);
     } catch (err) {
       console.error('Fetch loans error:', err);
-      setError(friendlyErrorMessage(err));
+      // A failed background poll should not spray an error banner over a
+      // table the user is actively reading. Surface only on initial load;
+      // the "Updated Xs ago" ticker naturally showing an old time is the
+      // passive signal that something's stale.
+      if (!silent) setError(friendlyErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchLoans(); }, []);
+  // Initial load + background polling.
+  useEffect(() => {
+    refreshLoans();
+
+    const startPolling = () => {
+      if (pollRef.current) return;
+      pollRef.current = setInterval(() => {
+        refreshLoans({ silent: true });
+      }, POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+
+    // Pause polling when the tab is hidden (backgrounded, minimised, on
+    // another browser tab). Resume + immediate refresh on return so the
+    // user never sees stale data after switching back.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshLoans({ silent: true });
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refreshLoans]);
+
+  // "Updated Xs ago" ticker — recomputes every second so the display stays
+  // honest. Cheap, single state update, no network.
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const tick = () => setSecondsAgo(Math.floor((Date.now() - lastUpdated) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastUpdated]);
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await refreshLoans({ silent: true });
+    setRefreshing(false);
+  };
 
   const handleApprove = async (loanId) => {
     if (!window.confirm('Approve this loan?')) return;
@@ -150,7 +231,8 @@ function AdminLoans() {
         const err = await res.json();
         throw new Error(err.error || 'Failed to approve');
       }
-      fetchLoans();
+      // Silent refresh — the row moves tabs; the table updates in place.
+      refreshLoans({ silent: true });
     } catch (err) {
       alert('Error: ' + err.message);
     }
@@ -170,7 +252,7 @@ function AdminLoans() {
         const err = await res.json();
         throw new Error(err.error || 'Failed to reject');
       }
-      fetchLoans();
+      refreshLoans({ silent: true });
     } catch (err) {
       alert('Error: ' + err.message);
     }
@@ -192,7 +274,7 @@ function AdminLoans() {
         throw new Error(err.error || 'Failed to disburse');
       }
       setReceipt({ ...receipt, [loanId]: '' });
-      fetchLoans();
+      refreshLoans({ silent: true });
     } catch (err) {
       alert('Error: ' + err.message);
     }
@@ -203,6 +285,15 @@ function AdminLoans() {
   const visibleLoans = activeTab === 'all' ? loans : loans.filter((l) => l.status === activeTab);
   const tabCount = (key) => key === 'all' ? stats.total : stats[key];
 
+  // Human-friendly "Updated 12s ago" / "Updated 2m ago" / "just now"
+  const lastUpdatedText = (() => {
+    if (!lastUpdated) return '';
+    if (secondsAgo < 5) return 'Updated just now';
+    if (secondsAgo < 60) return `Updated ${secondsAgo}s ago`;
+    const mins = Math.floor(secondsAgo / 60);
+    return `Updated ${mins}m ago`;
+  })();
+
   return (
     <AdminLayout
       title="Loan Approval Queue"
@@ -212,10 +303,35 @@ function AdminLoans() {
         <div className="error-banner" style={{ marginBottom: 24 }}>
           {error}
           <div style={{ marginTop: 8 }}>
-            <button className="admin-btn admin-btn--approve" onClick={fetchLoans}>Retry</button>
+            <button className="admin-btn admin-btn--approve" onClick={handleManualRefresh}>Retry</button>
           </div>
         </div>
       )}
+
+      {/* Freshness bar — shows how stale the list is, and gives staff a
+          manual refresh for the impatient case. Auto-refresh runs every
+          ${POLL_INTERVAL_MS/1000}s regardless. */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 12, fontSize: '0.78rem', color: 'rgba(31,36,33,0.5)',
+      }}>
+        <span>{lastUpdatedText}</span>
+        <button
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: '1px solid var(--color-line)',
+            borderRadius: 4, padding: '5px 10px', cursor: refreshing ? 'wait' : 'pointer',
+            fontSize: '0.78rem', color: 'var(--color-ink)',
+            opacity: refreshing ? 0.6 : 1,
+          }}
+          title="Refresh now"
+        >
+          <RefreshIcon />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 24 }}>
         {STATS_CONFIG.map((s) => (
