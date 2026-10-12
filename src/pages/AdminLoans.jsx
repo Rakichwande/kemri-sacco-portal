@@ -23,6 +23,13 @@ const TABS = [
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'disbursed', label: 'Disbursed' },
+  // 2026-10-12: 'repaid' was missing from this list. STATS_CONFIG has
+  // always counted it (the stat card showed "Repaid 2") but there was
+  // no way to filter to that set — repaid loans only appeared under All.
+  // Positioned after 'disbursed' to match the natural lifecycle order
+  // (pending -> approved -> disbursed -> repaid) so the tabs read as a
+  // sequence, not an arbitrary list.
+  { key: 'repaid', label: 'Repaid' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'all', label: 'All' },
 ];
@@ -114,9 +121,10 @@ function AdminLoans() {
   // queue. Previously defaulted to 'pending' — when the queue was empty,
   // the page opened onto a blank panel. Now, on the first successful
   // fetch, if there are no pending loans the tab lands on the first
-  // status that has rows (approved, disbursed, or rejected), falling
-  // back to 'all'. A ref (not state) because we only want this to happen
-  // once, and it must not re-fire on background polls or manual refresh.
+  // status that has rows (approved, disbursed, repaid, or rejected),
+  // falling back to 'all'. A ref (not state) because we only want this
+  // to happen once, and it must not re-fire on background polls or
+  // manual refresh.
   const initialTabSetRef = useRef(false);
 
   const pollRef = useRef(null);
@@ -150,9 +158,10 @@ function AdminLoans() {
       // 2026-10-12: on the first successful load only, if the default
       // 'pending' tab has no rows, jump to the first tab that does. So a
       // staff member opening the queue when nothing is pending lands on
-      // 'disbursed' or 'all' rather than an empty panel.
+      // 'disbursed' or 'all' rather than an empty panel. 'repaid' is
+      // included in the sequence now that it has its own tab.
       if (!initialTabSetRef.current) {
-        const firstWithRows = ['pending', 'approved', 'disbursed', 'rejected']
+        const firstWithRows = ['pending', 'approved', 'disbursed', 'repaid', 'rejected']
           .find((key) => data.some((l) => l.status === key));
         setActiveTab(firstWithRows || 'all');
         initialTabSetRef.current = true;
