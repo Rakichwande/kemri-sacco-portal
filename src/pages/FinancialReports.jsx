@@ -87,7 +87,7 @@ function FinancialReports() {
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Period Type</div>
             <select value={periodType} onChange={(e) => setPeriodType(e.target.value)} style={selectStyle}>
@@ -134,18 +134,49 @@ function FinancialReports() {
         <LoadingState />
       ) : summary ? (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          {/* Four stat cards.
+              2026-10-12: added Interest Accrued and split the repayments
+              card so the board sees profit vs capital recovery at a glance.
+              Before this change the page showed only three flow figures —
+              a KES 9,347 "Repayments Received" was misread as profit when
+              only KES 400 of it was. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}>
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-forest)' }}>
               <div className="admin-stat-card__value">{formatKES(summary.contributionsCollected)}</div>
               <div className="admin-stat-card__label">Contributions Collected</div>
             </div>
+
             <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
               <div className="admin-stat-card__value">{formatKES(summary.loansDisbursed)}</div>
               <div className="admin-stat-card__label">Loans Disbursed</div>
             </div>
+
+            {/* Interest Accrued — the profit figure. Interest earned on
+                loans disbursed during this period, regardless of whether
+                the member has repaid yet. Sub-line shows how much has
+                actually been collected in cash. */}
+            <div className="admin-stat-card" style={{ '--stat-accent': '#1f5e3a' }}>
+              <div className="admin-stat-card__value">{formatKES(summary.interestAccrued)}</div>
+              <div className="admin-stat-card__label">Interest Accrued</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
+                {formatKES(summary.interestCollected)} collected
+              </div>
+            </div>
+
+            {/* Repayments Received — total cash back in. Sub-line splits
+                it into principal (return of SACCO capital) vs interest
+                (profit). This is the key distinction the board asked for. */}
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
               <div className="admin-stat-card__value">{formatKES(summary.repaymentsReceived)}</div>
               <div className="admin-stat-card__label">Repayments Received</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
+                {formatKES(summary.principalRepaid)} principal · {formatKES(summary.interestCollected)} interest
+              </div>
             </div>
           </div>
 
@@ -162,16 +193,28 @@ function FinancialReports() {
                   <th>Month</th>
                   <th style={{ textAlign: 'right' }}>Contributions</th>
                   <th style={{ textAlign: 'right' }}>Disbursed</th>
+                  <th style={{ textAlign: 'right' }}>Interest Accrued</th>
                   <th style={{ textAlign: 'right' }}>Repayments</th>
+                  <th style={{ textAlign: 'right' }}>Principal</th>
+                  <th style={{ textAlign: 'right' }}>Interest</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.breakdown.map((row) => (
                   <tr key={row.month}>
                     <td style={{ fontWeight: 500 }}>{row.month}</td>
-                    <td style={{ textAlign: 'right' }}>{formatKES(row.contributions)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatKES(row.disbursed)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatKES(row.repayments)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(row.contributions)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(row.disbursed)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#1f5e3a', fontWeight: 500 }}>
+                      {formatKES(row.interestAccrued)}
+                    </td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatKES(row.repayments)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'rgba(31,36,33,0.65)' }}>
+                      {formatKES(row.principalRepaid)}
+                    </td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#1f5e3a', fontWeight: 500 }}>
+                      {formatKES(row.interestCollected)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -179,6 +222,9 @@ function FinancialReports() {
           </div>
 
           <p style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.45)', marginTop: 16 }}>
+            <strong>Interest Accrued</strong> is profit earned on loans disbursed this period (accrual basis).
+            <strong> Interest</strong> under Repayments is profit actually received in cash.
+            For a 1-month loan settled on time the two coincide; for late payments they land in different months.
             Dividend accrual isn't included — no dividend formula is defined anywhere in the system yet.
             PDF export isn't built yet either; CSV covers the same data for now.
           </p>
