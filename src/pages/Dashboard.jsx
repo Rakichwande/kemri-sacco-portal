@@ -6,9 +6,6 @@ import CombinedTrend from '../components/CombinedTrend';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Dashboard is a board-facing view, not an operational queue. 60s keeps
-// numbers fresh without hammering the summary query — which is heavier
-// than the queue's per-loan list because it aggregates the whole book.
 const POLL_INTERVAL_MS = 60000;
 
 function formatKES(amount) {
@@ -38,8 +35,6 @@ function Dashboard() {
 
   const pollRef = useRef(null);
 
-  // Single fetch path. silent=true skips the full-page spinner — used for
-  // background polls and post-load refreshes so the dashboard never blanks.
   const refreshSummary = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setLoading(true);
@@ -60,16 +55,12 @@ function Dashboard() {
       if (silent) setError(null);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
-      // A failed background poll shouldn't cover a board-readable page in
-      // red. Surface only on initial load; the "Updated Xs ago" ticker
-      // naturally shows staleness for the silent case.
       if (!silent) setError(friendlyErrorMessage(err));
     } finally {
       if (!silent) setLoading(false);
     }
   }, []);
 
-  // Initial load + background polling + visibility pause.
   useEffect(() => {
     refreshSummary();
 
@@ -106,7 +97,6 @@ function Dashboard() {
     };
   }, [refreshSummary]);
 
-  // "Updated Xs ago" ticker.
   useEffect(() => {
     if (!lastUpdated) return;
     const tick = () => setSecondsAgo(Math.floor((Date.now() - lastUpdated) / 1000));
@@ -121,8 +111,6 @@ function Dashboard() {
     setRefreshing(false);
   };
 
-  // This month's repayments, pulled from the last entry of the monthly
-  // series (the array always ends with the current month).
   const thisMonthRepayments = summary?.monthlySeries?.length
     ? summary.monthlySeries[summary.monthlySeries.length - 1].repayments
     : 0;
@@ -146,9 +134,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Freshness bar — same pattern as AdminLoans. Auto-refresh runs
-          every 60s regardless; this tells you how stale the page is and
-          gives a manual override. */}
       {!loading && (
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -178,9 +163,15 @@ function Dashboard() {
         <LoadingState />
       ) : summary ? (
         <>
-          {/* Seven-card stat row — layout in styles.css under
-              .dashboard-stat-row. Explicit breakpoints: 7 / 4+3 / 3+3+1 /
-              2+2+2+1. */}
+          {/* Seven-card stat row.
+              2026-10-12 renames:
+                "Repayments Received"  -> "Repayments This Month"    (period)
+                "Repaid to Date"       -> "Repayments Lifetime"      (lifetime)
+                "Interest Earned"      -> "Interest Expected"        (accrual)
+              The two repayment cards showed identical figures in October
+              2026 (both KES 9,347) because October is the only month
+              with data. Renaming makes the distinction obvious before
+              the numbers diverge in November. */}
           <div className="dashboard-stat-row">
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{summary.totalMembers}</div>
@@ -199,15 +190,12 @@ function Dashboard() {
 
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
               <div className="admin-stat-card__value">{formatKES(thisMonthRepayments)}</div>
-              <div className="admin-stat-card__label">Repayments Received</div>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
-                This month
-              </div>
+              <div className="admin-stat-card__label">Repayments This Month</div>
             </div>
 
             <div className="admin-stat-card" style={{ '--stat-accent': '#1f5e3a' }}>
               <div className="admin-stat-card__value">{formatKES(summary.interestEarned)}</div>
-              <div className="admin-stat-card__label">Interest Earned</div>
+              <div className="admin-stat-card__label">Interest Expected</div>
               <div style={{ fontSize: '0.72rem', color: 'rgba(31,36,33,0.5)', marginTop: 2 }}>
                 {formatKES(summary.interestCollected)} collected
               </div>
@@ -215,7 +203,7 @@ function Dashboard() {
 
             <div className="admin-stat-card" style={{ '--stat-accent': '#0b6e99' }}>
               <div className="admin-stat-card__value">{formatKES(summary.repaidToDate)}</div>
-              <div className="admin-stat-card__label">Repaid to Date</div>
+              <div className="admin-stat-card__label">Repayments Lifetime</div>
             </div>
 
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
@@ -224,7 +212,12 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Financial Trends — combined grouped-bar chart. */}
+          {/* Financial Trends — combined grouped-bar chart. The "Data
+              begins 25 September 2026" note explains the flat bars for
+              May-Sep: the 369 legacy members were removed on 25 Sep and
+              a 17-person board/staff list was reimported, so no earlier
+              activity exists. This note should be removed when the chart
+              window moves past 25 Mar 2027 (6 months of clean data). */}
           <div className="admin-table-card" style={{ padding: 24, marginBottom: 24 }}>
             <div style={{
               fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600,
@@ -232,15 +225,21 @@ function Dashboard() {
             }}>
               Financial Trends
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 20 }}>
+            <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 4 }}>
               Last 6 months. Loans vs Repayments vs Interest.
+            </div>
+            <div style={{
+              fontSize: '0.72rem',
+              color: 'rgba(31,36,33,0.45)',
+              fontStyle: 'italic',
+              marginBottom: 20,
+            }}>
+              Data begins 25 September 2026 — earlier months appear flat for that reason.
             </div>
 
             <CombinedTrend data={summary.monthlySeries} />
           </div>
 
-          {/* Two-column layout — layout in styles.css under
-              .dashboard-two-col (2fr 1fr on desktop, single column ≤900px). */}
           <div className="dashboard-two-col">
             <div className="admin-table-card" style={{ padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>

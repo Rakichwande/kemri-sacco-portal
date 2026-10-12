@@ -110,6 +110,15 @@ function AdminLoans() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 2026-10-12: pick the initial tab based on what's actually in the
+  // queue. Previously defaulted to 'pending' — when the queue was empty,
+  // the page opened onto a blank panel. Now, on the first successful
+  // fetch, if there are no pending loans the tab lands on the first
+  // status that has rows (approved, disbursed, or rejected), falling
+  // back to 'all'. A ref (not state) because we only want this to happen
+  // once, and it must not re-fire on background polls or manual refresh.
+  const initialTabSetRef = useRef(false);
+
   const pollRef = useRef(null);
 
   const refreshLoans = useCallback(async ({ silent = false } = {}) => {
@@ -137,6 +146,18 @@ function AdminLoans() {
         repaid: data.filter((l) => l.status === 'repaid').length,
         rejected: data.filter((l) => l.status === 'rejected').length,
       });
+
+      // 2026-10-12: on the first successful load only, if the default
+      // 'pending' tab has no rows, jump to the first tab that does. So a
+      // staff member opening the queue when nothing is pending lands on
+      // 'disbursed' or 'all' rather than an empty panel.
+      if (!initialTabSetRef.current) {
+        const firstWithRows = ['pending', 'approved', 'disbursed', 'rejected']
+          .find((key) => data.some((l) => l.status === key));
+        setActiveTab(firstWithRows || 'all');
+        initialTabSetRef.current = true;
+      }
+
       setLastUpdated(Date.now());
       if (silent) setError(null);
     } catch (err) {
