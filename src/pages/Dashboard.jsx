@@ -171,7 +171,12 @@ function Dashboard() {
               The two repayment cards showed identical figures in October
               2026 (both KES 9,347) because October is the only month
               with data. Renaming makes the distinction obvious before
-              the numbers diverge in November. */}
+              the numbers diverge in November.
+
+              2026-10-14 reorder: Repayments Lifetime now sits at
+              position 4 (right after Principal Disbursed) so the reading
+              flow is: who / saved / lent / total-back / profit / this-month
+              / pending. Repayments This Month moved to position 6. */}
           <div className="dashboard-stat-row">
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
               <div className="admin-stat-card__value">{summary.totalMembers}</div>
@@ -188,9 +193,9 @@ function Dashboard() {
               <div className="admin-stat-card__label">Principal Disbursed</div>
             </div>
 
-            <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
-              <div className="admin-stat-card__value">{formatKES(thisMonthRepayments)}</div>
-              <div className="admin-stat-card__label">Repayments This Month</div>
+            <div className="admin-stat-card" style={{ '--stat-accent': '#0b6e99' }}>
+              <div className="admin-stat-card__value">{formatKES(summary.repaidToDate)}</div>
+              <div className="admin-stat-card__label">Repayments Lifetime</div>
             </div>
 
             <div className="admin-stat-card" style={{ '--stat-accent': '#1f5e3a' }}>
@@ -201,9 +206,9 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="admin-stat-card" style={{ '--stat-accent': '#0b6e99' }}>
-              <div className="admin-stat-card__value">{formatKES(summary.repaidToDate)}</div>
-              <div className="admin-stat-card__label">Repayments Lifetime</div>
+            <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
+              <div className="admin-stat-card__value">{formatKES(thisMonthRepayments)}</div>
+              <div className="admin-stat-card__label">Repayments This Month</div>
             </div>
 
             <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-gold)' }}>
