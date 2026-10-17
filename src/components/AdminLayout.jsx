@@ -36,8 +36,9 @@ const NAV_GROUPS = [
   {
     label: 'Loans',
     items: [
-      { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer'] },
-      { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer'] },
+      // Updated to include finance_officer
+      { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
+      { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Loan Income', to: '/admin/income', icon: icons.income, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
     ],
@@ -53,20 +54,22 @@ const NAV_GROUPS = [
     label: 'Reports',
     items: [
       { label: 'Financial Reports', to: '/admin/reports', icon: icons.reports, roles: ['admin', 'sacco_admin', 'finance_officer', 'auditor'] },
-      { label: 'Aging Report', to: '/admin/aging', icon: icons.aging, roles: ['admin', 'sacco_admin', 'loans_officer', 'auditor'] },
+      { label: 'Aging Report', to: '/admin/aging', icon: icons.aging, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer', 'auditor'] },
     ],
   },
   {
     label: 'Configuration',
     items: [
       { label: 'Data Import', to: '/admin/data-import', icon: icons.import, roles: ['admin', 'sacco_admin'] },
-      { label: 'System Health', to: '/admin/system-health', icon: icons.health, roles: ['admin'] }, // Super Admin only
+      // Updated to include finance_officer
+      { label: 'System Health', to: '/admin/system-health', icon: icons.health, roles: ['admin', 'finance_officer'] }, 
     ],
   },
   {
     label: 'Administration',
     items: [
-      { label: 'Staff Management', to: '/admin/staff', icon: icons.staff, roles: ['admin', 'sacco_admin'] },
+      // Updated to include finance_officer
+      { label: 'Staff Management', to: '/admin/staff', icon: icons.staff, roles: ['admin', 'sacco_admin', 'finance_officer'] },
       { label: 'Audit Trail', to: '/admin/audit-trail', icon: icons.audit, roles: ['admin', 'sacco_admin', 'auditor'] },
     ],
   },
@@ -89,8 +92,8 @@ function AdminLayout({ title, lede, children }) {
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
-  // Determine if this user can see loan data (for the topbar pending badge)
-  const canSeePendingLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(userRole);
+  // Updated to include finance_officer
+  const canSeePendingLoans = ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'].includes(userRole);
 
   useEffect(() => {
     setSidebarOpen(false);
