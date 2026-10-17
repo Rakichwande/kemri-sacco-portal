@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
+import { useAuth } from '../context/AuthContext'; // <-- Added
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -87,9 +88,6 @@ function ManualDisbursementModal({ loan, onClose, onDisbursed }) {
   );
 }
 
-// Stuck disbursement resolution modal. Shows when staff click "Resolve" on
-// a loan that's been in disbursing state for too long. Staff must have
-// already checked M-Pesa and know whether the member received the funds.
 function ResolveStuckModal({ loan, onClose, onResolved }) {
   const [outcome, setOutcome] = useState('');
   const [receipt, setReceipt] = useState('');
@@ -97,7 +95,6 @@ function ResolveStuckModal({ loan, onClose, onResolved }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  // Compute how long it's been stuck, for the header
   const disbursingAt = loan.disbursing_at ? new Date(loan.disbursing_at) : null;
   const minutesStuck = disbursingAt
     ? Math.round((Date.now() - disbursingAt.getTime()) / 60000)
@@ -150,7 +147,6 @@ function ResolveStuckModal({ loan, onClose, onResolved }) {
         {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          {/* Option 1 — received */}
           <label style={{
             display: 'block',
             padding: 12,
@@ -189,7 +185,6 @@ function ResolveStuckModal({ loan, onClose, onResolved }) {
             )}
           </label>
 
-          {/* Option 2 — not received */}
           <label style={{
             display: 'block',
             padding: 12,
@@ -248,6 +243,7 @@ function ResolveStuckModal({ loan, onClose, onResolved }) {
 }
 
 function DisbursementLog() {
+  const { user } = useAuth(); // <-- Added
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -257,6 +253,9 @@ function DisbursementLog() {
   const [b2cPendingId, setB2cPendingId] = useState(null);
   const [manualTarget, setManualTarget] = useState(null);
   const [resolveTarget, setResolveTarget] = useState(null);
+
+  // 2026-10-17: Check if the current user has permission to disburse.
+  const canManageLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(user?.role);
 
   const fetchLoans = async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -282,8 +281,6 @@ function DisbursementLog() {
 
   useEffect(() => { fetchLoans(); }, []);
 
-  // Poll every 5s while any loan is 'disbursing'. This lets the row update
-  // automatically when the B2C callback arrives.
   const hasDisbursing = loans.some((l) => l.status === 'disbursing');
   useEffect(() => {
     if (!hasDisbursing) return undefined;
@@ -370,10 +367,6 @@ function DisbursementLog() {
     return <span style={{ fontWeight: 500, color: 'var(--color-forest-deep)' }}>Cleared</span>;
   };
 
-  // Is this disbursing loan stuck? Compares disbursing_at against the
-  // threshold. Returns false if disbursing_at is missing (older loans
-  // that pre-date the column) — better to hide the Resolve link than
-  // show it based on unknown data.
   const isStuck = (loan) => {
     if (loan.status !== 'disbursing') return false;
     if (!loan.disbursing_at) return false;
@@ -480,7 +473,7 @@ function DisbursementLog() {
                   <td style={{ textAlign: 'right' }}>{remainingCell(l)}</td>
                   <td>{statusBadge(l.status)}</td>
                   <td>
-                    {l.status === 'approved' && (
+                    {l.status === 'approved' && canManageLoans && (
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => handleDisburseB2C(l)}
@@ -498,6 +491,10 @@ function DisbursementLog() {
                         </button>
                       </div>
                     )}
+                    {l.status === 'approved' && !canManageLoans && (
+                      <span style={{ fontSize: '0.8rem', color: 'rgba(31,36,33,0.4)' }}>Awaiting action</span>
+                    )}
+                    
                     {l.status === 'disbursing' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#2a4a7a' }}>
@@ -515,7 +512,7 @@ function DisbursementLog() {
                           />
                           <span>Awaiting Safaricom confirmation…</span>
                         </div>
-                        {isStuck(l) && (
+                        {isStuck(l) && canManageLoans && (
                           <button
                             onClick={() => setResolveTarget(l)}
                             style={{ background: 'none', border: 'none', color: '#a13030', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
