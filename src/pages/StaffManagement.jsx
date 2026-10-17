@@ -144,6 +144,10 @@ function StaffManagement() {
   const [error, setError] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
 
+  // 2026-10-17: Only Super Admins and SACCO Admins can invite or edit staff.
+  // Finance Officers (and others) can view this page but see read-only mode.
+  const canEditStaff = currentUser?.role === 'admin' || currentUser?.role === 'sacco_admin';
+
   const getToken = () => localStorage.getItem('token');
 
   const fetchStaff = async () => {
@@ -260,6 +264,16 @@ function StaffManagement() {
         withdrawals, and financial reports. Each is scoped to its area.
       </div>
 
+      {!canEditStaff && (
+        <div style={{
+          background: 'var(--color-paper)', border: '1px solid var(--color-line)', borderRadius: 4,
+          padding: '12px 16px', marginBottom: 20, fontSize: '0.85rem', color: 'rgba(31,36,33,0.6)',
+          fontStyle: 'italic'
+        }}>
+          You are viewing the staff directory in read-only mode. Only Administrators can invite or modify staff accounts.
+        </div>
+      )}
+
       {pendingInvites.length > 0 && (
         <div className="admin-table-card" style={{ marginBottom: 24 }}>
           <div style={{
@@ -300,13 +314,15 @@ function StaffManagement() {
                     {formatExpiry(invite.expires_at)}
                   </td>
                   <td>
-                    <button
-                      className="admin-btn admin-btn--reject"
-                      onClick={() => handleRevokeInvite(invite)}
-                      title="Invalidate this invite link"
-                    >
-                      Revoke
-                    </button>
+                    {canEditStaff && (
+                      <button
+                        className="admin-btn admin-btn--reject"
+                        onClick={() => handleRevokeInvite(invite)}
+                        title="Invalidate this invite link"
+                      >
+                        Revoke
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -315,11 +331,13 @@ function StaffManagement() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(true)}>
-          + Invite Staff
-        </button>
-      </div>
+      {canEditStaff && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button className="admin-btn admin-btn--approve" onClick={() => setShowInvite(true)}>
+            + Invite Staff
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <LoadingState />
@@ -333,7 +351,7 @@ function StaffManagement() {
                 <th>Phone</th>
                 <th>Role</th>
                 <th>Added</th>
-                <th>Actions</th>
+                {canEditStaff && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -350,27 +368,35 @@ function StaffManagement() {
                     <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.username}</td>
                     <td style={{ color: 'rgba(31,36,33,0.6)' }}>{s.phone || '—'}</td>
                     <td>
-                      <select
-                        value={s.role}
-                        onChange={(e) => handleRoleChange(s.id, e.target.value)}
-                        disabled={s.id === currentUser?.id || rowOptions.length === 0}
-                        style={{ padding: '5px 8px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
-                      >
-                        {rowOptions.map((r) => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </select>
+                      {canEditStaff ? (
+                        <select
+                          value={s.role}
+                          onChange={(e) => handleRoleChange(s.id, e.target.value)}
+                          disabled={s.id === currentUser?.id || rowOptions.length === 0}
+                          style={{ padding: '5px 8px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' }}
+                        >
+                          {rowOptions.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{ textTransform: 'capitalize', fontSize: '0.85rem' }}>
+                          {ROLES.find((r) => r.value === s.role)?.label || s.role.replace('_', ' ')}
+                        </span>
+                      )}
                     </td>
                     <td style={{ color: 'rgba(31,36,33,0.6)' }}>
                       {new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td>
-                      {s.id !== currentUser?.id && (
-                        <button className="admin-btn admin-btn--reject" onClick={() => handleRemove(s.id, s.full_name)}>
-                          Remove
-                        </button>
-                      )}
-                    </td>
+                    {canEditStaff && (
+                      <td>
+                        {s.id !== currentUser?.id && (
+                          <button className="admin-btn admin-btn--reject" onClick={() => handleRemove(s.id, s.full_name)}>
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
