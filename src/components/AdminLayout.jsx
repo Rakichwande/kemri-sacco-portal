@@ -12,15 +12,10 @@ const icons = {
   queue: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>,
   disbursement: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>,
   repayment: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>,
-  // Dollar-sign for Loan Income — the "money we've earned" view. Distinct
-  // from the repayment-arrows icon (which is about the flow of money) and
-  // from the bar-chart (which is about periodic totals).
   income: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
   directory: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
   contributions: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7h-3a2 2 0 01-2-2V2M9 22H5a2 2 0 01-2-2V4a2 2 0 012-2h7l5 5v3M15 19l2 2 4-4"/></svg>,
   reports: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
-  // Alert-triangle for the Aging Report — signals "loans needing attention"
-  // rather than the neutral bar-chart used for periodic reports.
   aging: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>,
   import: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>,
   health: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
@@ -29,64 +24,56 @@ const icons = {
   settings: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
 };
 
-// Nav structure mirrors the target design. `to: null` means the page
-// doesn't exist yet — shown but not clickable, with a "Soon" badge, so
-// the intended information architecture is visible while we build it out
-// page by page.
-//
-// 2026-10-09: Withdrawal feature retired per board instruction.
-// The "Operations" group previously contained only the Withdrawal Queue
-// and has been removed entirely. The `withdrawals` DB table is retained
-// as an archive; only the UI entry point is gone.
-//
-// 2026-10-09 (Phase 4): "Loan Income" added under the Loans group — the
-// per-loan breakdown of principal, expected interest, and repaid-to-date.
+// 2026-10-17: Role-based UI filtering.
+// The backend enforces permissions (403 errors), but we must also hide
+// menu items the user cannot access. Otherwise, they see pages that
+// result in "Missing required permission" errors.
 const NAV_GROUPS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', to: '/admin/dashboard', icon: icons.dashboard }],
+    items: [{ label: 'Dashboard', to: '/admin/dashboard', icon: icons.dashboard }], // Everyone
   },
   {
     label: 'Loans',
     items: [
-      { label: 'Approval Queue', to: '/admin', icon: icons.queue },
-      { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement },
-      { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment },
-      { label: 'Loan Income', to: '/admin/income', icon: icons.income },
+      { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer'] },
+      { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer'] },
+      { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
+      { label: 'Loan Income', to: '/admin/income', icon: icons.income, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
     ],
   },
   {
     label: 'Members',
     items: [
-      { label: 'Directory', to: '/admin/members', icon: icons.directory },
-      { label: 'Contribution Logs', to: '/admin/contributions', icon: icons.contributions },
+      { label: 'Directory', to: '/admin/members', icon: icons.directory }, // Everyone
+      { label: 'Contribution Logs', to: '/admin/contributions', icon: icons.contributions, roles: ['admin', 'sacco_admin', 'finance_officer'] },
     ],
   },
   {
     label: 'Reports',
     items: [
-      { label: 'Financial Reports', to: '/admin/reports', icon: icons.reports },
-      { label: 'Aging Report', to: '/admin/aging', icon: icons.aging },
+      { label: 'Financial Reports', to: '/admin/reports', icon: icons.reports, roles: ['admin', 'sacco_admin', 'finance_officer', 'auditor'] },
+      { label: 'Aging Report', to: '/admin/aging', icon: icons.aging, roles: ['admin', 'sacco_admin', 'loans_officer', 'auditor'] },
     ],
   },
   {
     label: 'Configuration',
     items: [
-      { label: 'Data Import', to: '/admin/data-import', icon: icons.import },
-      { label: 'System Health', to: '/admin/system-health', icon: icons.health },
+      { label: 'Data Import', to: '/admin/data-import', icon: icons.import, roles: ['admin', 'sacco_admin'] },
+      { label: 'System Health', to: '/admin/system-health', icon: icons.health, roles: ['admin'] }, // Super Admin only
     ],
   },
   {
     label: 'Administration',
     items: [
-      { label: 'Staff Management', to: '/admin/staff', icon: icons.staff },
-      { label: 'Audit Trail', to: '/admin/audit-trail', icon: icons.audit },
+      { label: 'Staff Management', to: '/admin/staff', icon: icons.staff, roles: ['admin', 'sacco_admin'] },
+      { label: 'Audit Trail', to: '/admin/audit-trail', icon: icons.audit, roles: ['admin', 'sacco_admin', 'auditor'] },
     ],
   },
   {
     label: 'Account',
     items: [
-      { label: 'Settings', to: '/admin/settings', icon: icons.settings },
+      { label: 'Settings', to: '/admin/settings', icon: icons.settings }, // Everyone
     ],
   },
 ];
@@ -95,23 +82,22 @@ function AdminLayout({ title, lede, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(null);
-  // Mobile drawer state. Only relevant below 900px viewport; on wider
-  // screens the sidebar is always visible and this flag is ignored by CSS.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const userRole = user?.role || 'staff';
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
-  // Close the mobile drawer whenever the route changes. Harmless on wide
-  // screens (the drawer isn't rendered there anyway).
+  // Determine if this user can see loan data (for the topbar pending badge)
+  const canSeePendingLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(userRole);
+
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  // Polls for pending loan applications so the count is visible on every
-  // page, not just the Dashboard - a real-time push would need websockets,
-  // which this stack doesn't have; a 30s poll is a reasonable stand-in.
   useEffect(() => {
+    if (!canSeePendingLoans) return; // Don't poll if they can't see loans
     let cancelled = false;
     const poll = async () => {
       try {
@@ -123,19 +109,16 @@ function AdminLayout({ title, lede, children }) {
         const data = await res.json();
         if (!cancelled) setPendingCount(data.length);
       } catch (err) {
-        // Silent - this is a background convenience indicator, not critical path
+        // Silent
       }
     };
     poll();
     const interval = setInterval(poll, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [canSeePendingLoans]);
 
   return (
     <div className="admin-shell">
-      {/* Mobile-only overlay behind the drawer. Rendered only when the
-          drawer is open; hidden by CSS on wide screens. Clicking it closes
-          the drawer. */}
       {sidebarOpen && (
         <div
           className="admin-sidebar-overlay"
@@ -152,46 +135,54 @@ function AdminLayout({ title, lede, children }) {
           </div>
         </div>
 
-        {NAV_GROUPS.map((group) => (
-          <div className="admin-sidebar__group" key={group.label}>
-            <div className="admin-sidebar__group-label">{group.label}</div>
-            {group.items.map((item) => {
-              const isActive = item.to && location.pathname === item.to;
-              if (!item.to) {
+        {NAV_GROUPS.map((group) => {
+          // Filter items based on user role
+          const visibleItems = group.items.filter((item) => {
+            if (!item.roles) return true; // No roles array means everyone can see it
+            return item.roles.includes(userRole);
+          });
+
+          // If no items in this group are visible to this role, hide the entire group header
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div className="admin-sidebar__group" key={group.label}>
+              <div className="admin-sidebar__group-label">{group.label}</div>
+              {visibleItems.map((item) => {
+                const isActive = item.to && location.pathname === item.to;
+                if (!item.to) {
+                  return (
+                    <span key={item.label} className="admin-sidebar__link is-disabled">
+                      <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
+                      <span className="admin-sidebar__link-label">{item.label}</span>
+                      <span className="admin-sidebar__link-badge">Soon</span>
+                    </span>
+                  );
+                }
                 return (
-                  <span key={item.label} className="admin-sidebar__link is-disabled">
+                  <Link
+                    key={item.label}
+                    to={item.to}
+                    className={`admin-sidebar__link${isActive ? ' is-active' : ''}`}
+                    onClick={() => setSidebarOpen(false)}
+                  >
                     <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
                     <span className="admin-sidebar__link-label">{item.label}</span>
-                    <span className="admin-sidebar__link-badge">Soon</span>
-                  </span>
+                  </Link>
                 );
-              }
-              return (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  className={`admin-sidebar__link${isActive ? ' is-active' : ''}`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
-                  <span className="admin-sidebar__link-label">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+              })}
+            </div>
+          );
+        })}
 
         <Link to="/admin/settings" className="admin-sidebar__footer" style={{ textDecoration: 'none' }}>
           <div className="admin-sidebar__footer-name">{user?.full_name || 'Admin'}</div>
-          <div className="admin-sidebar__footer-role">{user?.role || 'admin'}</div>
+          <div className="admin-sidebar__footer-role">{userRole.replace('_', ' ')}</div>
         </Link>
       </aside>
 
       <div className="admin-main">
         <div className="admin-topbar">
-          {/* Left cluster: hamburger (mobile only) + date/status. The
-              hamburger is display:none by default and only appears at
-              ≤900px via CSS. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <button
               className="admin-hamburger"
@@ -209,7 +200,7 @@ function AdminLayout({ title, lede, children }) {
             </div>
           </div>
           <div className="admin-topbar__actions">
-            {pendingCount > 0 && (
+            {canSeePendingLoans && pendingCount > 0 && (
               <Link to="/admin" style={{
                 display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
                 background: 'var(--color-gold-soft)', color: '#7a5a10', padding: '6px 12px',
