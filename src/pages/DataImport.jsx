@@ -4,23 +4,9 @@ import AdminLayout from '../components/AdminLayout';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// The template uses the same column names as the CEO's spreadsheet, so a
-// filled-in template can be handed back and imported without renaming
-// columns first.
 const TEMPLATE_COLUMNS = ['full_name', 'national_id', 'phone_number', 'reference_number', 'employer', 'join_date'];
-const REQUIRED_FIELDS = ['full_name', 'national_id']; // phone is optional (legacy members)
+const REQUIRED_FIELDS = ['full_name', 'national_id'];
 
-// Every header alias we accept, normalized to lowercase alphanumeric (so
-// "Full Name", "Full_Name", "FULL NAME", and "fullname" all collapse to the
-// same lookup key). Any header cell in the file is compared against this
-// map to figure out which canonical field it belongs to.
-//
-// Aliases are intentionally generous because real-world spreadsheets name
-// the same field in many ways. The CEO's contacts spreadsheet, for example,
-// labels the phone column "CONTACTS" rather than "phone".
-//
-// Unknown headers (like "M/NO." which the CEO's spreadsheet includes as a
-// row counter) are simply ignored - they're not treated as errors.
 const HEADER_ALIASES = {
   full_name: ['fullname', 'name', 'membername', 'member', 'fullnames'],
   national_id: ['nationalid', 'idnumber', 'id', 'nationalidnumber', 'idno', 'idnos', 'nationalids'],
@@ -41,15 +27,10 @@ const HEADER_ALIASES = {
   join_date: ['joindate', 'datejoined', 'joinedon', 'membershipdate', 'registrationdate', 'dateofjoining'],
 };
 
-// Reduce any header cell to its comparable form: lowercase, strip anything
-// that isn't a letter or digit. So "P/NO", "P NO", "P_NO", and "p-no" all
-// become "pno", which matches the reference_number alias list.
 function normalizeHeader(raw) {
   return String(raw || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Given a full header row, produce a mapping of canonical field name ->
-// column index. Headers not recognized are omitted.
 function mapHeaders(headerRow) {
   const mapping = {};
   headerRow.forEach((cell, index) => {
@@ -65,18 +46,10 @@ function mapHeaders(headerRow) {
   return mapping;
 }
 
-// How many canonical fields does this row match? Used to find the real
-// header row inside a file that may have a title line above it.
 function countMatches(row) {
   return Object.keys(mapHeaders(row)).length;
 }
 
-// Parse a file into { headers, rows } where rows are already keyed by
-// canonical field name, and each row carries its source file row number.
-//
-// Works for both .csv and .xlsx: SheetJS reads both through the same API
-// (it detects the file type from the buffer's magic bytes), so the frontend
-// doesn't need to branch on extension.
 async function parseFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -84,11 +57,6 @@ async function parseFile(file) {
   if (!firstSheetName) throw new Error('The file has no sheets.');
 
   const sheet = workbook.Sheets[firstSheetName];
-
-  // header:1 gives us an array of arrays (row 1 = [cellA, cellB, ...]),
-  // which lets us handle a title row above the real headers. defval:''
-  // fills blank cells so a short row doesn't produce undefined gaps.
-  // blankrows:true keeps the row indexing aligned with the source file.
   const grid = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
     defval: '',
@@ -98,9 +66,6 @@ async function parseFile(file) {
 
   if (grid.length === 0) throw new Error('The file is empty.');
 
-  // Find the header row: the first row with at least two canonical field
-  // matches. A single match could be accidental (a title row happening to
-  // contain the word "name"), but two confirms we've found real headers.
   let headerRowIndex = -1;
   let headerMapping = null;
   for (let i = 0; i < Math.min(grid.length, 10); i++) {
@@ -119,7 +84,6 @@ async function parseFile(file) {
     );
   }
 
-  // Sanity check: every required field must be present.
   const missingRequired = REQUIRED_FIELDS.filter((f) => !(f in headerMapping));
   if (missingRequired.length > 0) {
     throw new Error(
@@ -128,14 +92,11 @@ async function parseFile(file) {
     );
   }
 
-  // Build the row objects. Source row numbers are 1-indexed to match how
-  // Excel/Sheets display them (a title row is row 1, headers are row 2 or
-  // 3 depending on layout, first data row follows).
   const rows = [];
   for (let i = headerRowIndex + 1; i < grid.length; i++) {
     const raw = grid[i];
     const isEmpty = raw.every((cell) => String(cell || '').trim() === '');
-    if (isEmpty) continue; // skip blank rows
+    if (isEmpty) continue;
 
     const row = { sourceRow: i + 1 };
     for (const [field, colIndex] of Object.entries(headerMapping)) {
@@ -167,11 +128,14 @@ function downloadTemplate() {
 
 function DataImport() {
   const [fileName, setFileName] = useState('');
-  const [parsed, setParsed] = useState(null); // { headers, rows }
+  const [parsed, setParsed] = useState(null);
   const [parseError, setParseError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  
+  // 2026-10-29: State to control the custom confirmation modal
+  const [confirmData, setConfirmData] = useState(null);
 
   const handleFile = async (e) => {
     const file = e.target.files[0];
@@ -204,16 +168,20 @@ function DataImport() {
     }
   };
 
-  const handleImport = async () => {
+  // 1. Opens the modal instead of a native window.confirm
+  const triggerImportConfirm = () => {
     if (!parsed) return;
-    if (!window.confirm(
-      `Import ${parsed.rows.length} member(s)?\n\n` +
-      `Members with an existing National ID or phone number will be skipped, not overwritten.`
-    )) return;
+    setConfirmData({ count: parsed.rows.length });
+  };
 
+  // 2. The actual execution function called from the modal
+  const executeImport = async () => {
+    if (!parsed) return;
+    setConfirmData(null); // Close modal
     setSubmitting(true);
     setResult(null);
     setParseError(null);
+    
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/api/members/import`, {
@@ -307,7 +275,7 @@ function DataImport() {
                 mapped columns: {parsed.headers.join(', ')}
               </span>
             </div>
-            <button onClick={handleImport} disabled={submitting} className="admin-btn admin-btn--approve">
+            <button onClick={triggerImportConfirm} disabled={submitting} className="admin-btn admin-btn--approve">
               {submitting ? 'Importing…' : `Import ${parsed.rows.length} Member(s)`}
             </button>
           </div>
@@ -396,6 +364,46 @@ function DataImport() {
         those come exclusively from real contribution and repayment records, so every number the
         Dashboard and Financial Reports show can always be traced back to an actual transaction.
       </p>
+
+      {/* ======================================================= */}
+      {/* CUSTOM CONFIRM MODAL (Replaces the ugly purple OS one) */}
+      {/* ======================================================= */}
+      {confirmData && (
+        <div 
+          onClick={() => setConfirmData(null)} 
+          style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ background: '#fff', borderRadius: 8, padding: 32, maxWidth: 450, width: '90%', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: 16 }}>📁</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-forest-deep)', fontSize: '1.5rem', marginBottom: 8 }}>
+              Confirm Bulk Import
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: 'rgba(31,36,33,0.7)', marginBottom: 24, lineHeight: 1.5 }}>
+              You are about to import <strong>{confirmData.count} member records</strong>.<br/><br/>
+              Members with an existing National ID or phone number will be safely skipped, not overwritten.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button 
+                onClick={() => setConfirmData(null)} 
+                style={{ padding: '10px 24px', borderRadius: 4, border: '1px solid var(--color-line)', background: '#fff', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executeImport} 
+                className="admin-btn admin-btn--approve" 
+                style={{ padding: '10px 24px', fontSize: '0.9rem' }}
+              >
+                Yes, Import {confirmData.count} Members
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </AdminLayout>
   );
 }

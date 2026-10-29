@@ -52,7 +52,7 @@ function CombinedTrend({ data }) {
                 width: '100%', justifyContent: 'center',
               }}>
                 <div
-                  title={`Loans: ${formatKES(d.loans)}`}
+                  data-tooltip={`Loans: ${formatKES(d.loans)}`}
                   style={{
                     width: 12, height: loansH, background: '#55308a',
                     borderRadius: '3px 3px 0 0', cursor: 'help',

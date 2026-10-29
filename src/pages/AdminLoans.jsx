@@ -316,7 +316,7 @@ function AdminLoans() {
             fontSize: '0.78rem', color: 'var(--color-ink)',
             opacity: refreshing ? 0.6 : 1,
           }}
-          title="Refresh now"
+          data-tooltip="Refresh now"
         >
           <RefreshIcon />
           {refreshing ? 'Refreshing…' : 'Refresh'}

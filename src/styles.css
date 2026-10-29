@@ -810,3 +810,48 @@ main {
 @media (max-width: 600px) {
   .performance-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ============================================================
+   Custom Tooltips (Replaces ugly native browser title tooltips)
+   ============================================================ */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::before,
+[data-tooltip]::after {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  background: var(--color-forest-deep);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  margin-bottom: 6px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Small arrow pointing down */
+[data-tooltip]::before {
+  content: '';
+  border: 5px solid transparent;
+  border-top-color: var(--color-forest-deep);
+  margin-bottom: -4px;
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
