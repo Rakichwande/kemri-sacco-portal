@@ -118,11 +118,6 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
 
         {isView ? (
           <div>
-            {/* Read-only financial snapshot at the top of the View modal —
-                the two figures staff most often need when opening a member
-                record. Coloured to match the table: savings in the forest
-                green used for the Savings column, outstanding in the red
-                used for the Outstanding column when non-zero. */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--color-sage-soft, #eef2ee)', borderRadius: 4, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)' }}>Savings balance</div>
@@ -136,10 +131,6 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
               </div>
             </div>
 
-            {/* phone_number is now part of EDITABLE_FIELDS so it isn't
-                added separately here. id_number remains excluded from
-                EDITABLE_FIELDS (it's not editable) but still needs to
-                appear in the read-only View — added explicitly. */}
             {[...EDITABLE_FIELDS, { key: 'id_number', label: 'National ID' }].map((f) => (
               <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
                 <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{f.label}</span>
@@ -174,8 +165,6 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
                 )}
               </div>
             ))}
-            {/* Helper text for phone edits — explains the SMS notification
-                that fires on save, so staff know what to expect. */}
             {!isCreate && (
               <div style={{ fontSize: '0.75rem', color: 'rgba(31,36,33,0.5)', marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
                 Changing the phone number sends a confirmation SMS to both the old and new numbers.
@@ -196,26 +185,6 @@ function MemberFormModal({ mode, member, onClose, onSaved }) {
   );
 }
 
-// Confirmation modal for member deletion. Requires the admin to type the
-// member's reference number to enable the Delete button — the reference is
-// short, unique, and visible in the row the admin clicked, so a mistyped or
-// accidental delete is impossible. The member's name alone would be easier
-// to type by accident, which is exactly the wrong property for a
-// destructive action.
-//
-// Deletion rule shown to the staff member:
-//   - Financial history (deposits, repayments, disbursed/repaid loans,
-//     processed withdrawals) BLOCKS deletion.
-//   - Pending or rejected loan applications and withdrawal requests are
-//     removed with the member — they carry no financial consequence.
-// The modal explains both, so the person clicking Delete knows what will
-// happen before they confirm.
-//
-// The 409 (HAS_HISTORY) response is handled inline: the modal stays open,
-// and the blocking history is shown verbatim. The user's next action is
-// "Close", not "try again" — there is nothing to retry. That is a
-// different failure mode from a network error, so it is styled as an
-// explanation rather than an error banner.
 function DeleteMemberModal({ member, onClose, onDeleted }) {
   const [confirmText, setConfirmText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -238,7 +207,6 @@ function DeleteMemberModal({ member, onClose, onDeleted }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 409) {
-        // Member has financial history — legitimate business outcome.
         setBlocked({ message: data.error, counts: data.counts });
         return;
       }
@@ -355,8 +323,6 @@ function MemberDirectory() {
   const [deleteTarget, setDeleteTarget] = useState(null); // member pending deletion
   const [togglingId, setTogglingId] = useState(null); // member id currently being toggled
 
-  // Role is read from the JWT once per mount. If it changes (user re-logs),
-  // the component remounts anyway, so a one-time read is correct here.
   const role = getCurrentRole();
   const canToggleBoard = BOARD_STAFF_ROLES.includes(role);
   const canDelete = DELETE_ROLES.includes(role);
@@ -410,9 +376,6 @@ function MemberDirectory() {
     return <span className="admin-badge" style={colors[status] || colors.pending}>{status || 'pending'}</span>;
   };
 
-  // Board/Staff pill. Deliberately distinct from the status badge (which is
-  // sage-green for active) — amber conveys "elevated privilege" rather than
-  // state, so it reads as a category marker, not a status.
   const boardStaffBadge = () => (
     <span
       className="admin-badge"
@@ -431,6 +394,37 @@ function MemberDirectory() {
       Board/Staff
     </span>
   );
+
+  // 2026-10-30: Added logic to highlight members based on their loan eligibility.
+  const limitBadge = (member) => {
+    const limit = Number(member.credit_limit || 0);
+    
+    if (limit === 5000) {
+      return (
+        <span className="admin-badge" style={{
+          background: '#e6f4ea', color: '#1e8e3e', fontSize: '0.62rem',
+          letterSpacing: '0.04em', textTransform: 'uppercase', padding: '2px 6px',
+          marginLeft: 8, verticalAlign: 'middle', fontWeight: 600,
+        }}>
+          5K Eligible
+        </span>
+      );
+    }
+    
+    if (limit === 0) {
+      return (
+        <span className="admin-badge" style={{
+          background: '#fce8e6', color: '#c5221f', fontSize: '0.62rem',
+          letterSpacing: '0.04em', textTransform: 'uppercase', padding: '2px 6px',
+          marginLeft: 8, verticalAlign: 'middle', fontWeight: 600,
+        }}>
+          No Loan
+        </span>
+      );
+    }
+
+    return null; // If limit is 10000 (board/staff) we just rely on the Board badge
+  };
 
   const handleSaved = () => {
     setModal(null);
@@ -460,9 +454,6 @@ function MemberDirectory() {
     }
   };
 
-  // Called by DeleteMemberModal on successful deletion. The `data` argument
-  // carries the server's confirmation including any pending/rejected records
-  // that were cleaned up alongside the member.
   const handleDeleted = (data) => {
     setDeleteTarget(null);
     fetchMembers();
@@ -528,7 +519,7 @@ function MemberDirectory() {
                 <tr key={m.id}>
                   <td style={{ fontWeight: 500 }}>
                     {m.full_name}
-                    {m.is_board_staff && boardStaffBadge()}
+                    {m.is_board_staff ? boardStaffBadge() : limitBadge(m)}
                   </td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{m.reference}</td>
                   <td style={{ color: 'rgba(31,36,33,0.6)' }}>{m.phone_number}</td>
