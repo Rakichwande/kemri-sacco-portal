@@ -10,15 +10,10 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
-// Decode a JWT payload without verifying it. Verification is the backend's
-// job; the frontend only needs the role claim to decide which buttons to
-// show. If the token is absent or malformed, returns null and every
-// permission check below fails closed (buttons hidden).
 function getCurrentRole() {
   try {
     const token = localStorage.getItem('token');
     if (!token) return null;
-    // JWT uses base64url — translate to standard base64 before atob()
     const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const padded = part + '='.repeat((4 - (part.length % 4)) % 4);
     return JSON.parse(atob(padded)).role || null;
@@ -27,30 +22,11 @@ function getCurrentRole() {
   }
 }
 
-// Role gates for the two privileged actions on this page. Kept in sync with
-// middleware/permissions.js — Super Administrator ('admin') and SACCO
-// Administrator ('sacco_admin') are the only roles that hold either
-// members:set_board_status or members:delete.
-//
-// The backend enforces these again on the route, so hiding the buttons here
-// is UX, not security. A user who forges the request still gets a 403.
 const BOARD_STAFF_ROLES = ['admin', 'sacco_admin'];
 const DELETE_ROLES = ['admin', 'sacco_admin'];
+// 2026-10-31: Only Super Administrator (admin) can edit credit limits
+const EDIT_LIMIT_ROLES = ['admin']; 
 
-// Editable fields for the member edit form. phone_number is here (added
-// Oct 2026) because members change SIMs and staff must be able to update
-// records without direct SQL access. The backend normalizes any Kenyan
-// format to +254XXXXXXXXX and sends a confirmation SMS to both the old
-// and new numbers as a fraud-prevention measure. See
-// controllers/memberController.js's updateMember() for the full flow.
-//
-// id_number is NOT editable — it's a fixed identity field. Changing it
-// would break the audit trail linking the member to their original
-// registration.
-//
-// is_board_staff is NOT editable here — it has its own dedicated endpoint
-// (PATCH /api/members/:id/board-staff) gated on members:set_board_status,
-// accessible via the Make Board / Revoke Board links in the row actions.
 const EDITABLE_FIELDS = [
   { key: 'full_name', label: 'Full name', type: 'text' },
   { key: 'phone_number', label: 'Phone number', type: 'text' },
@@ -71,6 +47,101 @@ const CREATE_FIELDS = [
 
 const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' };
 
+// ============================================================
+// NEW: EDIT LIMIT MODAL (Super Admin Only)
+// ============================================================
+function EditLimitModal({ member, onClose, onSaved }) {
+  const [creditLimit, setCreditLimit] = useState(member.credit_limit || 0);
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!reason.trim()) {
+      setError('Reason for change is required for the audit trail.');
+      return;
+    }
+    
+    setSubmitting(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/api/members/${member.id}/credit-limit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ creditLimit: Number(creditLimit), reason }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update limit');
+      }
+      onSaved();
+    } catch (err) {
+      setError(friendlyErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 440, maxWidth: '90vw', padding: 24 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 4 }}>
+          Edit Loan Limit
+        </div>
+        <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
+          {member.full_name} ({member.reference})
+        </div>
+        
+        {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+              New Credit Limit (KES) *
+            </div>
+            <input
+              type="number"
+              required
+              value={creditLimit}
+              onChange={(e) => setCreditLimit(e.target.value)}
+              style={inputStyle}
+              placeholder="e.g., 5000, 10000, 15000"
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>
+              Reason for Change *
+            </div>
+            <textarea
+              required
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g., Salary increase, Risk management, Board approval..."
+              style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--color-line)', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="admin-btn admin-btn--approve" style={{ flex: 1 }}>
+              {submitting ? 'Saving…' : 'Save Limit'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MEMBER FORM MODAL
+// ============================================================
 function MemberFormModal({ mode, member, onClose, onSaved }) {
   const isCreate = mode === 'create';
   const isView = mode === 'view';
@@ -322,10 +393,14 @@ function MemberDirectory() {
   const [statementMemberId, setStatementMemberId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // member pending deletion
   const [togglingId, setTogglingId] = useState(null); // member id currently being toggled
+  
+  // 2026-10-31: State for the Edit Limit modal
+  const [limitTarget, setLimitTarget] = useState(null); 
 
   const role = getCurrentRole();
   const canToggleBoard = BOARD_STAFF_ROLES.includes(role);
   const canDelete = DELETE_ROLES.includes(role);
+  const canEditLimit = EDIT_LIMIT_ROLES.includes(role); // <--- New check
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -395,9 +470,14 @@ function MemberDirectory() {
     </span>
   );
 
-  // 2026-10-30: Added logic to highlight members based on their loan eligibility.
+  // 2026-10-31: Updated to handle custom limits dynamically
   const limitBadge = (member) => {
     const limit = Number(member.credit_limit || 0);
+    
+    if (limit === 10000) {
+      // If they aren't board/staff but have 10K limit, just show a generic badge (or none)
+      return null; 
+    }
     
     if (limit === 5000) {
       return (
@@ -423,11 +503,21 @@ function MemberDirectory() {
       );
     }
 
-    return null; // If limit is 10000 (board/staff) we just rely on the Board badge
+    // For custom limits (e.g., 7500 or 15000)
+    return (
+      <span className="admin-badge" style={{
+        background: '#e8f0fe', color: '#1967d2', fontSize: '0.62rem',
+        letterSpacing: '0.04em', textTransform: 'uppercase', padding: '2px 6px',
+        marginLeft: 8, verticalAlign: 'middle', fontWeight: 600,
+      }}>
+        {limit / 1000}K Eligible
+      </span>
+    );
   };
 
   const handleSaved = () => {
     setModal(null);
+    setLimitTarget(null); // Close limit modal if open
     fetchMembers();
   };
 
@@ -549,6 +639,17 @@ function MemberDirectory() {
                       <Link to={`/admin/members/${m.id}/performance`} style={{ color: 'var(--color-forest)', fontSize: '0.82rem', textDecoration: 'underline' }}>
                         Performance
                       </Link>
+                      
+                      {/* NEW: Edit Limit Button (Super Admin Only) */}
+                      {canEditLimit && (
+                        <button
+                          onClick={() => setLimitTarget(m)}
+                          style={{ background: 'none', border: 'none', color: '#1967d2', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: 500 }}
+                        >
+                          Edit Limit
+                        </button>
+                      )}
+
                       {canToggleBoard && (
                         <button
                           onClick={() => handleToggleBoard(m)}
@@ -602,6 +703,15 @@ function MemberDirectory() {
           member={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onDeleted={handleDeleted}
+        />
+      )}
+
+      {/* NEW: Render Edit Limit Modal */}
+      {limitTarget && (
+        <EditLimitModal
+          member={limitTarget}
+          onClose={() => setLimitTarget(null)}
+          onSaved={handleSaved}
         />
       )}
     </AdminLayout>
