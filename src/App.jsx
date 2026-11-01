@@ -19,7 +19,8 @@ import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
 import LoanAgingReport from './pages/LoanAgingReport';
 import LoanIncome from './pages/LoanIncome';
-import LoanEligibility from './pages/LoanEligibility'; // <--- THIS WAS MISSING
+import LoanEligibility from './pages/LoanEligibility';
+import LoanTimeline from './pages/LoanTimeline'; // <--- ADDED
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -35,16 +36,23 @@ function AppRoutes() {
       <Route path="/accept-invite/:token" element={<AcceptInvite />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
+      
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminLoans />
         </ProtectedRoute>
       } />
       
-      {/* THIS WAS MISSING */}
       <Route path="/admin/eligibility" element={
         <ProtectedRoute>
           <LoanEligibility />
+        </ProtectedRoute>
+      } />
+
+      {/* 2026-11-02: NEW Loan Timeline Route */}
+      <Route path="/admin/loans/timeline" element={
+        <ProtectedRoute>
+          <LoanTimeline />
         </ProtectedRoute>
       } />
 

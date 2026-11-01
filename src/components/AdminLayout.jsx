@@ -10,7 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const icons = {
   dashboard: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
   queue: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>,
-  eligibility: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>, // <--- NEW ICON
+  eligibility: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>, 
   disbursement: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>,
   repayment: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>,
   income: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
@@ -25,10 +25,6 @@ const icons = {
   settings: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
 };
 
-// 2026-10-17: Role-based UI filtering.
-// The backend enforces permissions (403 errors), but we must also hide
-// menu items the user cannot access. Otherwise, they see pages that
-// result in "Missing required permission" errors.
 const NAV_GROUPS = [
   {
     label: 'Overview',
@@ -37,11 +33,11 @@ const NAV_GROUPS = [
   {
     label: 'Loans',
     items: [
-      // Updated to include finance_officer
       { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
-      
-      // 2026-11-01: Added Loan Eligibility Directory - restricted to CEO/Super Admin only
       { label: 'Eligibility Directory', to: '/admin/eligibility', icon: icons.eligibility, roles: ['admin'] },
+      
+      // 2026-11-02: Added Loan Timeline Report
+      { label: 'Loan Timeline', to: '/admin/loans/timeline', icon: icons.audit, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
 
       { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
@@ -66,14 +62,12 @@ const NAV_GROUPS = [
     label: 'Configuration',
     items: [
       { label: 'Data Import', to: '/admin/data-import', icon: icons.import, roles: ['admin', 'sacco_admin'] },
-      // Updated to include finance_officer
       { label: 'System Health', to: '/admin/system-health', icon: icons.health, roles: ['admin', 'finance_officer'] }, 
     ],
   },
   {
     label: 'Administration',
     items: [
-      // Updated to include finance_officer
       { label: 'Staff Management', to: '/admin/staff', icon: icons.staff, roles: ['admin', 'sacco_admin', 'finance_officer'] },
       { label: 'Audit Trail', to: '/admin/audit-trail', icon: icons.audit, roles: ['admin', 'sacco_admin', 'auditor'] },
     ],
@@ -97,7 +91,6 @@ function AdminLayout({ title, lede, children }) {
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
-  // Updated to include finance_officer
   const canSeePendingLoans = ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'].includes(userRole);
 
   useEffect(() => {
