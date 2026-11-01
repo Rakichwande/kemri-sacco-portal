@@ -65,6 +65,9 @@ export default function LoanEligibility() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('All');
   const [limitTarget, setLimitTarget] = useState(null);
+  
+  // 2026-11-01: NEW Search State
+  const [search, setSearch] = useState(''); 
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -79,7 +82,6 @@ export default function LoanEligibility() {
       
       const data = await res.json();
       
-      // Safety check: Ensure data is an array before setting state
       if (Array.isArray(data)) {
         setMembers(data);
       } else {
@@ -88,7 +90,7 @@ export default function LoanEligibility() {
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch members.');
-      setMembers([]); // Ensure it stays an array even on error
+      setMembers([]); 
     } finally {
       setLoading(false);
     }
@@ -96,17 +98,29 @@ export default function LoanEligibility() {
 
   useEffect(() => { fetchMembers(); }, []);
 
-  // Ensure we always map over an array, even if 'members' was somehow corrupted
   const safeMembers = Array.isArray(members) ? members : [];
   
+  // 2026-11-01: Combined filtering (Search + Tabs)
   const filteredMembers = safeMembers.filter(m => {
+    // 1. Filter by Tab
     const limit = Number(m.credit_limit || 0);
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Board/Staff') return m.is_board_staff;
-    if (activeTab === '5K') return limit === 5000 && !m.is_board_staff;
-    if (activeTab === 'No Loan') return limit === 0;
-    if (activeTab === 'Custom') return limit !== 0 && limit !== 5000 && limit !== 10000;
-    return true;
+    let matchesTab = true;
+    
+    if (activeTab === 'Board/Staff') matchesTab = m.is_board_staff;
+    else if (activeTab === '5K') matchesTab = (limit === 5000 && !m.is_board_staff);
+    else if (activeTab === 'No Loan') matchesTab = (limit === 0);
+    else if (activeTab === 'Custom') matchesTab = (limit !== 0 && limit !== 5000 && limit !== 10000);
+
+    if (!matchesTab) return false;
+
+    // 2. Filter by Search Query
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      m.full_name?.toLowerCase().includes(q) ||
+      m.reference?.toLowerCase().includes(q) ||
+      m.phone_number?.toLowerCase().includes(q)
+    );
   });
 
   const TabButton = ({ label }) => (
@@ -127,12 +141,30 @@ export default function LoanEligibility() {
     <AdminLayout title="Loan Eligibility Directory" lede="View and manage credit limits across all member categories.">
       {error && <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: 6, marginBottom: 20 }}>{error}</div>}
       
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <TabButton label="All" />
-        <TabButton label="Board/Staff" />
-        <TabButton label="5K" />
-        <TabButton label="Custom" />
-        <TabButton label="No Loan" />
+      {/* TABS & SEARCH BAR ROW */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <TabButton label="All" />
+          <TabButton label="Board/Staff" />
+          <TabButton label="5K" />
+          <TabButton label="Custom" />
+          <TabButton label="No Loan" />
+        </div>
+
+        {/* Search Input */}
+        <input
+          type="text"
+          placeholder="Search name, reference, or phone..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4,
+            fontSize: '0.88rem', width: '100%', maxWidth: 300,
+            fontFamily: 'var(--font-body)'
+          }}
+        />
       </div>
 
       {loading ? (
@@ -141,7 +173,7 @@ export default function LoanEligibility() {
         <div className="admin-table-card">
           {filteredMembers.length === 0 ? (
              <div style={{ padding: 48, textAlign: 'center', color: 'rgba(31,36,33,0.5)' }}>
-               No members found in this category.
+               No members found matching your criteria.
              </div>
           ) : (
             <table className="admin-table">
