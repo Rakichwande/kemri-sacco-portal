@@ -366,7 +366,7 @@ function AdminLoans() {
                 <th>Member</th>
                 <th>Member Ref</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
-                <th>Timeline</th> {/* <--- Changed from Applied */}
+                <th>Timeline</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -404,7 +404,6 @@ function AdminLoans() {
                   </td>
                   <td style={{ textAlign: 'right' }}>{formatKES(loan.principal)}</td>
                   
-                  {/* 2026-11-01: Show Timeline in Table */}
                   <td style={{ color: 'rgba(31,36,33,0.6)', fontSize: '0.8rem' }}>
                     <div>App: {new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
                     {loan.approved_at && <div>Appr: {new Date(loan.approved_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>}
@@ -434,17 +433,28 @@ function AdminLoans() {
                       
                       {loan.status === 'approved' && canManageLoans && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 160 }}>
-                          <input
-                            type="text"
-                            placeholder="M-Pesa Receipt"
-                            value={receipt[loan.id] || ''}
-                            onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
-                            style={{
-                              padding: '6px 8px', border: '1px solid var(--color-line)',
-                              borderRadius: 4, fontSize: '0.82rem',
-                            }}
-                          />
-                          <button className="admin-btn admin-btn--disburse" onClick={() => handleDisburse(loan.id)}>Disburse</button>
+                          
+                          {/* 2026-11-02: SECURITY GATEKEEPER - Hide Disburse if over limit */}
+                          {isOverLimit ? (
+                            <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '6px 0' }}>
+                              Cannot Disburse (Over Limit)
+                            </div>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                placeholder="M-Pesa Receipt"
+                                value={receipt[loan.id] || ''}
+                                onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
+                                style={{
+                                  padding: '6px 8px', border: '1px solid var(--color-line)',
+                                  borderRadius: 4, fontSize: '0.82rem',
+                                }}
+                              />
+                              <button className="admin-btn admin-btn--disburse" onClick={() => handleDisburse(loan.id)}>Disburse</button>
+                            </>
+                          )}
+
                         </div>
                       )}
                     </div>
