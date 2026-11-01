@@ -66,7 +66,6 @@ export default function LoanEligibility() {
   const [activeTab, setActiveTab] = useState('All');
   const [limitTarget, setLimitTarget] = useState(null);
   
-  // 2026-11-01: NEW Search State
   const [search, setSearch] = useState(''); 
 
   const fetchMembers = async () => {
@@ -100,7 +99,6 @@ export default function LoanEligibility() {
 
   const safeMembers = Array.isArray(members) ? members : [];
   
-  // 2026-11-01: Combined filtering (Search + Tabs)
   const filteredMembers = safeMembers.filter(m => {
     // 1. Filter by Tab
     const limit = Number(m.credit_limit || 0);
@@ -181,6 +179,7 @@ export default function LoanEligibility() {
                 <tr>
                   <th>Member</th>
                   <th>Reference</th>
+                  <th>Phone</th> {/* <--- ADDED PHONE COLUMN */}
                   <th>Current Limit</th>
                   <th>Outstanding</th>
                   <th>Status</th>
@@ -197,6 +196,7 @@ export default function LoanEligibility() {
                         {m.is_board_staff && <span style={{ marginLeft: 8, fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: 4 }}>BOARD/STAFF</span>}
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>{m.reference || '—'}</td>
+                      <td style={{ color: 'rgba(31,36,33,0.7)', fontSize: '0.85rem' }}>{m.phone_number || '—'}</td> {/* <--- ADDED PHONE DATA */}
                       <td>
                         <span style={{
                           padding: '4px 8px', borderRadius: 4, fontWeight: 600,
