@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState, { friendlyErrorMessage } from '../components/LoadingState';
-import { useAuth } from '../context/AuthContext'; // <-- Added
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Background refresh cadence. 20s is deliberately gentler than the 5s
-// DisbursementLog uses for B2C-in-flight loans: applications arrive at
-// human pace, so there's no callback window to catch, and hammering the
-// endpoint would waste requests.
 const POLL_INTERVAL_MS = 20000;
 
 const STATS_CONFIG = [
@@ -48,24 +44,23 @@ function RefreshIcon() {
 
 function ReviewModal({ loan, onClose }) {
   if (!loan) return null;
+  
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Pending';
+    return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
   const row = (label, value) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-line)' }}>
       <span style={{ color: 'rgba(31,36,33,0.55)', fontSize: '0.85rem' }}>{label}</span>
-      <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{value}</span>
+      <span style={{ fontWeight: 500, fontSize: '0.88rem', textAlign: 'right' }}>{value}</span>
     </div>
   );
+
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: 6, width: 420, maxWidth: '90vw', padding: 24 }}
-      >
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 440, maxWidth: '90vw', padding: 24, maxHeight: '90vh', overflowY: 'auto' }}>
+        
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, color: 'var(--color-forest-deep)' }}>
             {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`}
@@ -76,27 +71,26 @@ function ReviewModal({ loan, onClose }) {
           Member: {loan.member_name || `#${loan.member_id}`} · {loan.member_reference || '—'}
         </div>
 
-        {row('Member', loan.member_name || loan.member_id)}
-        {row('Member reference', loan.member_reference || '—')}
         {row('Phone', loan.phone_number || 'N/A')}
-        
-        {/* 2026-11-01: Added Credit Limit to Review Modal */}
         {row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)}
-
         {row('Purpose', loan.purpose || '—')}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
-        {row('Term', `${loan.tenure_months} ${loan.tenure_months === 1 ? 'month' : 'months'}`)}
         {row('Total amount payable', formatKES(loan.total_repayment))}
         {row('Amount outstanding', formatKES(loan.outstanding_balance))}
-        {row('Applied', new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))}
+        
+        {/* 2026-11-01: Loan Timeline */}
+        <div style={{ marginTop: 16, padding: 12, background: 'var(--color-sage-soft)', borderRadius: 4 }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-forest)', marginBottom: 8 }}>Loan Timeline</div>
+          {row('Applied At', formatDate(loan.applied_at))}
+          {row('Approved At', formatDate(loan.approved_at))}
+          {row('Disbursed At', formatDate(loan.disbursed_at))}
+          {loan.next_payment_due && row('Due Date', new Date(loan.next_payment_due).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))}
+        </div>
+
         {loan.admin_notes && row('Admin notes', loan.admin_notes)}
 
-        <button
-          onClick={onClose}
-          className="admin-btn admin-btn--approve"
-          style={{ marginTop: 16, width: '100%' }}
-        >
+        <button onClick={onClose} className="admin-btn admin-btn--approve" style={{ marginTop: 16, width: '100%' }}>
           Close
         </button>
       </div>
@@ -105,7 +99,7 @@ function ReviewModal({ loan, onClose }) {
 }
 
 function AdminLoans() {
-  const { user } = useAuth(); // <-- Added
+  const { user } = useAuth();
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -117,8 +111,6 @@ function AdminLoans() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 2026-10-17: Check if the current user has permission to approve/disburse.
-  // Finance Officers and Auditors can see this page, but they can only "Review".
   const canManageLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(user?.role);
 
   const initialTabSetRef = useRef(false);
@@ -374,7 +366,7 @@ function AdminLoans() {
                 <th>Member</th>
                 <th>Member Ref</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
-                <th>Applied</th>
+                <th>Timeline</th> {/* <--- Changed from Applied */}
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -389,7 +381,6 @@ function AdminLoans() {
                     {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`}
                   </td>
                   <td>
-                    {/* 2026-11-01: Added Member Limit Badges */}
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {loan.member_name || loan.member_id}
                       {loan.is_board_staff ? (
@@ -402,7 +393,6 @@ function AdminLoans() {
                         </span>
                       )}
                     </div>
-                    {/* Warning if requested amount exceeds limit */}
                     {!loan.is_board_staff && isOverLimit && (
                       <div style={{ fontSize: '0.7rem', color: '#b91c1c', marginTop: 4, fontWeight: 500 }}>
                         ⚠️ Request exceeds limit
@@ -413,9 +403,14 @@ function AdminLoans() {
                     {loan.member_reference || '—'}
                   </td>
                   <td style={{ textAlign: 'right' }}>{formatKES(loan.principal)}</td>
-                  <td style={{ color: 'rgba(31,36,33,0.6)' }}>
-                    {new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                  
+                  {/* 2026-11-01: Show Timeline in Table */}
+                  <td style={{ color: 'rgba(31,36,33,0.6)', fontSize: '0.8rem' }}>
+                    <div>App: {new Date(loan.applied_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
+                    {loan.approved_at && <div>Appr: {new Date(loan.approved_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>}
+                    {loan.disbursed_at && <div style={{ color: 'var(--color-forest)', fontWeight: 500 }}>Disb: {new Date(loan.disbursed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>}
                   </td>
+
                   <td>
                     <span className={badgeClass(loan.status)}>
                       {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
@@ -430,7 +425,6 @@ function AdminLoans() {
                         Review
                       </button>
                       
-                      {/* 2026-10-17: Only show Approve/Reject if canManageLoans */}
                       {loan.status === 'pending' && canManageLoans && (
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button className="admin-btn admin-btn--approve" onClick={() => handleApprove(loan.id)}>Approve</button>
@@ -438,7 +432,6 @@ function AdminLoans() {
                         </div>
                       )}
                       
-                      {/* 2026-10-17: Only show Disburse if canManageLoans */}
                       {loan.status === 'approved' && canManageLoans && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 160 }}>
                           <input
