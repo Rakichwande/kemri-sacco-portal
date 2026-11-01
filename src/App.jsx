@@ -19,6 +19,7 @@ import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
 import LoanAgingReport from './pages/LoanAgingReport';
 import LoanIncome from './pages/LoanIncome';
+import LoanEligibility from './pages/LoanEligibility'; // <--- THIS WAS MISSING
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -39,6 +40,14 @@ function AppRoutes() {
           <AdminLoans />
         </ProtectedRoute>
       } />
+      
+      {/* THIS WAS MISSING */}
+      <Route path="/admin/eligibility" element={
+        <ProtectedRoute>
+          <LoanEligibility />
+        </ProtectedRoute>
+      } />
+
       <Route path="/admin/audit-trail" element={
         <ProtectedRoute>
           <AuditTrail />
@@ -54,10 +63,6 @@ function AppRoutes() {
           <MemberDirectory />
         </ProtectedRoute>
       } />
-      {/* Per-member credit performance report — lifetime loan history,
-          on-time repayment tally, savings vs outstanding. Reached via the
-          "Performance" action in the Member Directory. More specific path
-          than /admin/members, so React Router matches the right one. */}
       <Route path="/admin/members/:id/performance" element={
         <ProtectedRoute>
           <MemberPerformance />
@@ -73,9 +78,6 @@ function AppRoutes() {
           <RepaymentHistory />
         </ProtectedRoute>
       } />
-      {/* Loan Income — per-loan breakdown of principal, expected interest,
-          and repaid-to-date. Under "Loans" in the sidebar. Added
-          2026-10-09 (Phase 4). */}
       <Route path="/admin/income" element={
         <ProtectedRoute>
           <LoanIncome />
@@ -86,9 +88,6 @@ function AppRoutes() {
           <ContributionLogs />
         </ProtectedRoute>
       } />
-      {/* 2026-10-09: Withdrawal feature retired per board instruction.
-          Route removed; withdrawals table retained as archive.
-          See AdminLayout.jsx for the sidebar note. */}
       <Route path="/admin/staff" element={
         <ProtectedRoute>
           <StaffManagement />
@@ -99,9 +98,6 @@ function AppRoutes() {
           <FinancialReports />
         </ProtectedRoute>
       } />
-      {/* Aging Report — how far behind each outstanding loan is. Distinct
-          from /admin/reports (financial period summaries) because it's a
-          point-in-time snapshot of lending health, not a periodic view. */}
       <Route path="/admin/aging" element={
         <ProtectedRoute>
           <LoanAgingReport />
