@@ -79,6 +79,10 @@ function ReviewModal({ loan, onClose }) {
         {row('Member', loan.member_name || loan.member_id)}
         {row('Member reference', loan.member_reference || '—')}
         {row('Phone', loan.phone_number || 'N/A')}
+        
+        {/* 2026-11-01: Added Credit Limit to Review Modal */}
+        {row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)}
+
         {row('Purpose', loan.purpose || '—')}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
@@ -376,12 +380,35 @@ function AdminLoans() {
               </tr>
             </thead>
             <tbody>
-              {visibleLoans.map((loan) => (
+              {visibleLoans.map((loan) => {
+                const isOverLimit = Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit));
+                
+                return (
                 <tr key={loan.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 500, color: 'var(--color-forest-deep)' }}>
                     {loan.reference || `LN-${String(loan.id).padStart(5, '0')}`}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{loan.member_name || loan.member_id}</td>
+                  <td>
+                    {/* 2026-11-01: Added Member Limit Badges */}
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {loan.member_name || loan.member_id}
+                      {loan.is_board_staff ? (
+                        <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>BOARD/STAFF</span>
+                      ) : Number(loan.credit_limit) === 0 ? (
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>NO LOAN</span>
+                      ) : (
+                        <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                          LIMIT: KES {Number(loan.credit_limit).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    {/* Warning if requested amount exceeds limit */}
+                    {!loan.is_board_staff && isOverLimit && (
+                      <div style={{ fontSize: '0.7rem', color: '#b91c1c', marginTop: 4, fontWeight: 500 }}>
+                        ⚠️ Request exceeds limit
+                      </div>
+                    )}
+                  </td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>
                     {loan.member_reference || '—'}
                   </td>
@@ -430,7 +457,7 @@ function AdminLoans() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
           </div>

@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const icons = {
   dashboard: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
   queue: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>,
+  eligibility: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>, // <--- NEW ICON
   disbursement: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>,
   repayment: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>,
   income: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
@@ -38,6 +39,10 @@ const NAV_GROUPS = [
     items: [
       // Updated to include finance_officer
       { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
+      
+      // 2026-11-01: Added Loan Eligibility Directory - restricted to CEO/Super Admin only
+      { label: 'Eligibility Directory', to: '/admin/eligibility', icon: icons.eligibility, roles: ['admin'] },
+
       { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Loan Income', to: '/admin/income', icon: icons.income, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
