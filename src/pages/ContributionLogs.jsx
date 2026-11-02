@@ -9,6 +9,13 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
+const TABS = [
+  { key: 'all', label: 'All Deposits' },
+  { key: 'ordinary', label: 'Ordinary' },
+  { key: 'jipange', label: 'Jipange' },
+  { key: 'holiday', label: 'Holiday' },
+];
+
 function ContributionLogs() {
   const [contributions, setContributions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +24,9 @@ function ContributionLogs() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [receiptId, setReceiptId] = useState(null);
+  
+  // 2026-11-02: Added state for the savings type tab
+  const [activeTab, setActiveTab] = useState('all');
 
   const fetchContributions = async () => {
     setLoading(true);
@@ -53,20 +63,61 @@ function ContributionLogs() {
     setSearch('');
     setDateFrom('');
     setDateTo('');
+    setActiveTab('all');
   };
 
-  const totalCollected = contributions.reduce((sum, c) => sum + Number(c.amount), 0);
+  // 2026-11-02: Filter the fetched contributions by the selected tab
+  const filteredContributions = contributions.filter((c) => {
+    if (activeTab === 'all') return true;
+    const type = c.savings_type || 'ordinary'; // Fallback for old deposits
+    return type === activeTab;
+  });
+
+  const totalCollected = filteredContributions.reduce((sum, c) => sum + Number(c.amount), 0);
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-body)' };
   const dateStyle = { width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem' };
   const labelStyle = { fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 };
+
+  // 2026-11-02: Helper to render the colored savings badge
+  const renderBadge = (type) => {
+    const map = {
+      ordinary: { bg: '#e5e7eb', color: '#374151', label: 'Ordinary' },
+      jipange: { bg: '#dcfce7', color: '#166534', label: 'Jipange' },
+      holiday: { bg: '#fef3c7', color: '#92400e', label: 'Holiday' }
+    };
+    const style = map[type] || map.ordinary;
+    return (
+      <span style={{ background: style.bg, color: style.color, padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>
+        {style.label}
+      </span>
+    );
+  };
 
   return (
     <AdminLayout title="Contribution Logs" lede="Every contribution received from members — verify incoming funds by member or date.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
+      {/* TABS & STATS */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              padding: '8px 16px', borderRadius: 4, fontSize: '0.85rem', fontWeight: 500,
+              cursor: 'pointer', border: '1px solid var(--color-line)',
+              background: activeTab === tab.key ? 'var(--color-forest-deep)' : '#fff',
+              color: activeTab === tab.key ? '#fff' : 'var(--color-ink)',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
         <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
-          <div className="admin-stat-card__value">{contributions.length}</div>
+          <div className="admin-stat-card__value">{filteredContributions.length}</div>
           <div className="admin-stat-card__label">Matching Contributions</div>
         </div>
         <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-forest)' }}>
@@ -100,9 +151,9 @@ function ContributionLogs() {
 
       {loading ? (
         <LoadingState />
-      ) : contributions.length === 0 ? (
+      ) : filteredContributions.length === 0 ? (
         <div className="admin-table-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(31,36,33,0.5)' }}>
-          No contributions match that search.
+          No contributions match that search or category.
         </div>
       ) : (
         <div className="admin-table-card">
@@ -112,18 +163,20 @@ function ContributionLogs() {
                 <th>Date</th>
                 <th>Member</th>
                 <th>Reference</th>
+                <th>Savings Type</th> {/* <--- NEW COLUMN */}
                 <th style={{ textAlign: 'right' }}>Amount</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {contributions.map((c) => (
+              {filteredContributions.map((c) => (
                 <tr key={c.id}>
                   <td style={{ color: 'rgba(31,36,33,0.6)' }}>
                     {new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </td>
                   <td style={{ fontWeight: 500 }}>{c.member_name || `Member #${c.member_id}`}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{c.member_reference}</td>
+                  <td>{renderBadge(c.savings_type)}</td> {/* <--- NEW BADGE */}
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatKES(c.amount)}</td>
                   <td style={{ textAlign: 'right' }}>
                     <button
@@ -141,7 +194,7 @@ function ContributionLogs() {
       )}
 
       <p style={{ fontSize: '0.78rem', color: 'rgba(31,36,33,0.45)', marginTop: 16 }}>
-        No channel filter here — contributions have no stored channel in the system, unlike repayments.
+        Use the tabs above to filter by savings type. The total collected will update automatically.
       </p>
 
       {receiptId && <ReceiptModal paymentId={receiptId} onClose={() => setReceiptId(null)} />}
