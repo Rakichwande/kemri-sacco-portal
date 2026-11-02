@@ -79,7 +79,6 @@ function ReviewModal({ loan, onClose }) {
         {row('Total amount payable', formatKES(loan.total_repayment))}
         {row('Amount outstanding', formatKES(loan.outstanding_balance))}
         
-        {/* 2026-11-01: Loan Timeline */}
         <div style={{ marginTop: 16, padding: 12, background: 'var(--color-sage-soft)', borderRadius: 4 }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-forest)', marginBottom: 8 }}>Loan Timeline</div>
           {row('Applied At', formatDate(loan.applied_at))}
@@ -248,20 +247,43 @@ function AdminLoans() {
     }
   };
 
-  const handleDisburse = async (loanId) => {
+  // 1. RETRY AUTOMATIC B2C
+  const handleRetryB2C = async (loanId) => {
+    if (!window.confirm('Retry automatic B2C disbursement via Safaricom?')) return;
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/loans/auto-disburse/${loanId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to retry B2C');
+      }
+      refreshLoans({ silent: true });
+      alert('B2C Request sent to Safaricom. Please wait for confirmation.');
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  };
+
+  // 2. MANUAL DISBURSEMENT
+  const handleManualDisburse = async (loanId) => {
     const mpesaReceipt = receipt[loanId]?.trim() || '';
-    if (!mpesaReceipt && !window.confirm('No receipt entered. Continue?')) return;
-    if (!window.confirm('Mark as disbursed?')) return;
+    if (!mpesaReceipt) {
+      return alert('You must enter the M-Pesa Receipt code to manually disburse.');
+    }
+    if (!window.confirm('Mark as manually disbursed? This will not trigger Safaricom B2C.')) return;
     try {
       const token = getToken();
       const res = await fetch(`${API_BASE}/api/loans/disburse/${loanId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ mpesaReceipt: mpesaReceipt || 'Manual Transfer' }),
+        body: JSON.stringify({ mpesaReceipt }),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to disburse');
+        throw new Error(err.error || 'Failed to manually disburse');
       }
       setReceipt({ ...receipt, [loanId]: '' });
       refreshLoans({ silent: true });
@@ -431,27 +453,44 @@ function AdminLoans() {
                         </div>
                       )}
                       
+                      {/* 2026-11-02: UPDATED ACTION BUTTONS FOR APPROVED LOANS */}
                       {loan.status === 'approved' && canManageLoans && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 160 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 200 }}>
                           
-                          {/* 2026-11-02: SECURITY GATEKEEPER - Hide Disburse if over limit */}
                           {isOverLimit ? (
                             <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '6px 0' }}>
                               Cannot Disburse (Over Limit)
                             </div>
                           ) : (
                             <>
-                              <input
-                                type="text"
-                                placeholder="M-Pesa Receipt"
-                                value={receipt[loan.id] || ''}
-                                onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
-                                style={{
-                                  padding: '6px 8px', border: '1px solid var(--color-line)',
-                                  borderRadius: 4, fontSize: '0.82rem',
-                                }}
-                              />
-                              <button className="admin-btn admin-btn--disburse" onClick={() => handleDisburse(loan.id)}>Disburse</button>
+                              <button 
+                                onClick={() => handleRetryB2C(loan.id)} 
+                                className="admin-btn"
+                                style={{ background: '#1c4a75', color: '#fff', padding: '6px' }}
+                              >
+                                Retry B2C (Auto)
+                              </button>
+                              
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
+                                <span style={{ fontSize: '0.7rem', color: '#666' }}>Or manual receipt:</span>
+                                <input
+                                  type="text"
+                                  placeholder="M-Pesa Receipt"
+                                  value={receipt[loan.id] || ''}
+                                  onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
+                                  style={{
+                                    padding: '6px 8px', border: '1px solid var(--color-line)',
+                                    borderRadius: 4, fontSize: '0.82rem',
+                                  }}
+                                />
+                                <button 
+                                  onClick={() => handleManualDisburse(loan.id)} 
+                                  className="admin-btn"
+                                  style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px' }}
+                                >
+                                  Mark Manually Paid
+                                </button>
+                              </div>
                             </>
                           )}
 
