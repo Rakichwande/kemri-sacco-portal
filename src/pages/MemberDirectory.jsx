@@ -22,10 +22,9 @@ function getCurrentRole() {
   }
 }
 
-const BOARD_STAFF_ROLES = ['admin', 'sacco_admin'];
-const DELETE_ROLES = ['admin', 'sacco_admin'];
-// 2026-10-31: Only Super Administrator (admin) can edit credit limits
-const EDIT_LIMIT_ROLES = ['admin']; 
+// 2026-11-05: STRICT CEO-ONLY PERMISSIONS
+// The CEO (admin) is the ONLY role that can edit members, limits, board status, or delete.
+const ADMIN_ONLY_ROLES = ['admin'];
 
 const EDITABLE_FIELDS = [
   { key: 'full_name', label: 'Full name', type: 'text' },
@@ -48,7 +47,7 @@ const CREATE_FIELDS = [
 const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem' };
 
 // ============================================================
-// NEW: EDIT LIMIT MODAL (Super Admin Only)
+// EDIT LIMIT MODAL (Super Admin Only)
 // ============================================================
 function EditLimitModal({ member, onClose, onSaved }) {
   const [creditLimit, setCreditLimit] = useState(member.credit_limit || 0);
@@ -394,13 +393,15 @@ function MemberDirectory() {
   const [deleteTarget, setDeleteTarget] = useState(null); // member pending deletion
   const [togglingId, setTogglingId] = useState(null); // member id currently being toggled
   
-  // 2026-10-31: State for the Edit Limit modal
   const [limitTarget, setLimitTarget] = useState(null); 
 
   const role = getCurrentRole();
-  const canToggleBoard = BOARD_STAFF_ROLES.includes(role);
-  const canDelete = DELETE_ROLES.includes(role);
-  const canEditLimit = EDIT_LIMIT_ROLES.includes(role); // <--- New check
+  
+  // 2026-11-05: STRICT CEO-ONLY CHECKS
+  const canEditMember = ADMIN_ONLY_ROLES.includes(role);
+  const canToggleBoard = ADMIN_ONLY_ROLES.includes(role);
+  const canDelete = ADMIN_ONLY_ROLES.includes(role);
+  const canEditLimit = ADMIN_ONLY_ROLES.includes(role);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -470,12 +471,10 @@ function MemberDirectory() {
     </span>
   );
 
-  // 2026-10-31: Updated to handle custom limits dynamically
   const limitBadge = (member) => {
     const limit = Number(member.credit_limit || 0);
     
     if (limit === 10000) {
-      // If they aren't board/staff but have 10K limit, just show a generic badge (or none)
       return null; 
     }
     
@@ -503,7 +502,6 @@ function MemberDirectory() {
       );
     }
 
-    // For custom limits (e.g., 7500 or 15000)
     return (
       <span className="admin-badge" style={{
         background: '#e8f0fe', color: '#1967d2', fontSize: '0.62rem',
@@ -517,7 +515,7 @@ function MemberDirectory() {
 
   const handleSaved = () => {
     setModal(null);
-    setLimitTarget(null); // Close limit modal if open
+    setLimitTarget(null);
     fetchMembers();
   };
 
@@ -576,9 +574,12 @@ function MemberDirectory() {
           onChange={(e) => setSearch(e.target.value)}
           style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-body)' }}
         />
-        <button className="admin-btn admin-btn--approve" onClick={() => setModal({ mode: 'create', member: null })}>
-          + New Member
-        </button>
+        {/* 2026-11-05: Only CEO can create new members */}
+        {canEditMember && (
+          <button className="admin-btn admin-btn--approve" onClick={() => setModal({ mode: 'create', member: null })}>
+            + New Member
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -630,9 +631,14 @@ function MemberDirectory() {
                       <button onClick={() => setModal({ mode: 'view', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         View
                       </button>
-                      <button onClick={() => setModal({ mode: 'edit', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
-                        Edit
-                      </button>
+                      
+                      {/* 2026-11-05: Only CEO can edit member details */}
+                      {canEditMember && (
+                        <button onClick={() => setModal({ mode: 'edit', member: m })} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                          Edit
+                        </button>
+                      )}
+                      
                       <button onClick={() => setStatementMemberId(m.id)} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', fontSize: '0.82rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         Statement
                       </button>
@@ -640,7 +646,7 @@ function MemberDirectory() {
                         Performance
                       </Link>
                       
-                      {/* NEW: Edit Limit Button (Super Admin Only) */}
+                      {/* Only CEO can edit limit */}
                       {canEditLimit && (
                         <button
                           onClick={() => setLimitTarget(m)}
@@ -650,6 +656,7 @@ function MemberDirectory() {
                         </button>
                       )}
 
+                      {/* Only CEO can toggle board status */}
                       {canToggleBoard && (
                         <button
                           onClick={() => handleToggleBoard(m)}
@@ -668,6 +675,8 @@ function MemberDirectory() {
                           {togglingId === m.id ? '…' : m.is_board_staff ? 'Revoke Board' : 'Make Board'}
                         </button>
                       )}
+                      
+                      {/* Only CEO can delete */}
                       {canDelete && (
                         <button
                           onClick={() => setDeleteTarget(m)}
@@ -706,7 +715,6 @@ function MemberDirectory() {
         />
       )}
 
-      {/* NEW: Render Edit Limit Modal */}
       {limitTarget && (
         <EditLimitModal
           member={limitTarget}
