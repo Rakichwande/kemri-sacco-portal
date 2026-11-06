@@ -46,9 +46,10 @@ export default function WalletWithdrawals() {
     return t.wallet_type === activeTab;
   });
 
+  // FIXED: Using Math.abs() because the DB stores debits as negative amounts
   const totalWithdrawn = filtered
     .filter(t => t.transaction_type === 'withdrawal')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
 
   return (
     <AdminLayout title="Wallet Withdrawals" lede="Monitor all withdrawals from Member SACCO Wallets to M-Pesa.">
