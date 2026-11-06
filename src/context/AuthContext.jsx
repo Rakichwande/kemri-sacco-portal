@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     const res = await api.post('/api/auth/login', { username, password });
     if (res.data.otpRequired) {
-      return res.data; // { otpRequired: true, otpToken, message } - caller shows the OTP screen
+      return res.data; // { otpRequired: true, otpToken, message, method } - caller shows the OTP screen
     }
     const { token, user } = res.data;
     localStorage.setItem('token', token);
@@ -46,8 +46,18 @@ export function AuthProvider({ children }) {
     return user;
   };
 
+  // 1. Email OTP Verification
   const verifyOtp = async (otpToken, code) => {
     const res = await api.post('/api/auth/verify-otp', { otpToken, code });
+    const { token, user } = res.data;
+    localStorage.setItem('token', token);
+    setUser(user);
+    return user;
+  };
+
+  // 2. Google Authenticator (TOTP) Verification
+  const verify2FA = async (otpToken, code) => {
+    const res = await api.post('/api/auth/verify-2fa', { otpToken, code });
     const { token, user } = res.data;
     localStorage.setItem('token', token);
     setUser(user);
@@ -59,7 +69,9 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, setUser, loading, login, verifyOtp, logout, api };
+  // Add verify2FA to the exported value
+  const value = { user, setUser, loading, login, verifyOtp, verify2FA, logout, api };
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
