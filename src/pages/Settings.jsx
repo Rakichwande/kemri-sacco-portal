@@ -39,6 +39,7 @@ function Settings() {
   const [pwError, setPwError] = useState(null);
 
   // 2026-11-06: 2FA State
+  const [mfaMethod, setMfaMethod] = useState('none');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [qrCode, setQrCode] = useState(null);
   const [twoFactorSecret, setTwoFactorSecret] = useState('');
@@ -47,6 +48,7 @@ function Settings() {
   const [twoFactorMsg, setTwoFactorMsg] = useState(null);
 
   const getToken = () => localStorage.getItem('token');
+  const isAdmin = ['admin', 'sacco_admin'].includes(user?.role);
 
   const fetchMe = async () => {
     setLoading(true);
@@ -65,7 +67,15 @@ function Settings() {
         notify_sms: u.notify_sms ?? true,
         notify_email: u.notify_email ?? false,
       });
-      setTwoFactorEnabled(!!u.two_factor_enabled);
+      
+      const hasTotp = !!u.two_factor_enabled;
+      setTwoFactorEnabled(hasTotp);
+      
+      // Set initial MFA method based on database state
+      if (hasTotp) setMfaMethod('totp');
+      else if (u.notify_email) setMfaMethod('email');
+      else setMfaMethod('none');
+
     } catch (err) {
       setError(friendlyErrorMessage(err));
     } finally {
@@ -76,7 +86,7 @@ function Settings() {
   useEffect(() => { fetchMe(); }, []);
 
   const handleSaveProfile = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setSavingProfile(true);
     setProfileMessage(null);
     try {
@@ -159,7 +169,10 @@ function Settings() {
       setQrCode(null);
       setTwoFactorSecret('');
       setTotpCode('');
-      setTwoFactorMsg('Two-Factor Authentication is now enabled.');
+      setTwoFactorMsg('Authenticator App successfully enabled.');
+      // Auto save the profile to ensure email notify is turned off if totp is on
+      setProfile(prev => ({ ...prev, notify_email: false }));
+      setTimeout(() => handleSaveProfile(), 100);
     } catch (err) {
       setTwoFactorMsg(friendlyErrorMessage(err));
     } finally {
@@ -168,7 +181,7 @@ function Settings() {
   };
 
   const handleDisable2FA = async () => {
-    if (!window.confirm('Are you sure you want to disable 2FA? This makes your account less secure.')) return;
+    if (!window.confirm('Are you sure you want to remove the Authenticator App?')) return;
     setSaving2FA(true);
     setTwoFactorMsg(null);
     try {
@@ -180,11 +193,34 @@ function Settings() {
       if (!res.ok) throw new Error(data.error || 'Failed to disable 2FA');
       
       setTwoFactorEnabled(false);
-      setTwoFactorMsg('Two-Factor Authentication has been disabled.');
+      setTwoFactorMsg('Authenticator App removed.');
     } catch (err) {
       setTwoFactorMsg(friendlyErrorMessage(err));
     } finally {
       setSaving2FA(false);
+    }
+  };
+
+  // Handle dropdown change
+  const handleMfaChange = async (e) => {
+    const newMethod = e.target.value;
+    setMfaMethod(newMethod);
+    setTwoFactorMsg(null);
+
+    if (newMethod === 'none') {
+      if (twoFactorEnabled) await handleDisable2FA();
+      setProfile(prev => ({ ...prev, notify_email: false }));
+      setProfileMessage('Preferences updated.');
+      setTimeout(() => handleSaveProfile(), 100);
+    } 
+    else if (newMethod === 'email') {
+      if (twoFactorEnabled) await handleDisable2FA();
+      setProfile(prev => ({ ...prev, notify_email: true }));
+      setProfileMessage('Preferences updated.');
+      setTimeout(() => handleSaveProfile(), 100);
+    } 
+    else if (newMethod === 'totp') {
+      setProfile(prev => ({ ...prev, notify_email: false }));
     }
   };
 
@@ -257,7 +293,7 @@ function Settings() {
               </label>
 
               {profileMessage && (
-                <div style={{ fontSize: '0.85rem', color: profileMessage === 'Saved.' ? 'var(--color-forest)' : 'var(--color-error)', marginBottom: 12 }}>
+                <div style={{ fontSize: '0.85rem', color: profileMessage.includes('updated') || profileMessage === 'Saved.' ? 'var(--color-forest)' : 'var(--color-error)', marginBottom: 12 }}>
                   {profileMessage}
                 </div>
               )}
@@ -304,66 +340,77 @@ function Settings() {
           </SectionCard>
 
           {/* 2026-11-06: 2FA Section */}
-          <SectionCard title="Two-Factor Authentication (2FA)" lede="Add an extra layer of security to your account by requiring a 6-digit code from your Authenticator app.">
-            {twoFactorMsg && (
-              <div style={{ fontSize: '0.85rem', color: twoFactorMsg.includes('enabled') || twoFactorMsg.includes('disabled') ? 'var(--color-forest)' : 'var(--color-error)', marginBottom: 16, fontWeight: 500 }}>
-                {twoFactorMsg}
-              </div>
-            )}
-
-            {twoFactorEnabled ? (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: 4, fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Enabled</span>
-                  <span style={{ fontSize: '0.9rem', color: 'rgba(31,36,33,0.7)' }}>Your account is protected by 2FA.</span>
-                </div>
-                <button 
-                  onClick={handleDisable2FA} 
-                  disabled={saving2FA}
-                  className="admin-btn admin-btn--reject"
-                >
-                  {saving2FA ? 'Disabling…' : 'Disable 2FA'}
-                </button>
-              </div>
-            ) : qrCode ? (
-              <div>
-                <div style={{ padding: 16, background: '#f8f9fa', borderRadius: 6, border: '1px solid var(--color-line)', display: 'inline-block', marginBottom: 16 }}>
-                  <img src={qrCode} alt="2FA QR Code" style={{ display: 'block', width: 200, height: 200 }} />
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'rgba(31,36,33,0.7)', marginBottom: 16, maxWidth: 400 }}>
-                  Scan this QR code with Google Authenticator or Authy. If you can't scan it, enter this setup key manually: <br/>
-                  <strong style={{ fontFamily: 'var(--font-mono)', background: '#eee', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>{twoFactorSecret}</strong>
-                </div>
-                <form onSubmit={handleVerify2FA} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-                  <div>
-                    <div style={labelStyle}>Enter 6-digit code to verify</div>
-                    <input
-                      type="text" required maxLength={6} placeholder="000000"
-                      value={totpCode} onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                      style={{ ...inputStyle, width: 150, fontFamily: 'var(--font-mono)', fontSize: '1.1rem', letterSpacing: 4 }}
-                    />
-                  </div>
-                  <button type="submit" disabled={saving2FA || totpCode.length < 6} className="admin-btn admin-btn--approve" style={{ padding: '9px 16px' }}>
-                    {saving2FA ? 'Verifying…' : 'Verify & Enable'}
-                  </button>
-                  <button type="button" onClick={() => setQrCode(null)} className="admin-btn" style={{ background: '#eee', color: '#333' }}>
-                    Cancel
-                  </button>
-                </form>
-              </div>
+          <SectionCard title="Two-Factor Authentication (2FA)" lede="Add an extra layer of security to your account by requiring a 6-digit code.">
+            
+            {!isAdmin ? (
+               <div style={{ fontSize: '0.9rem', color: 'rgba(31,36,33,0.6)', padding: '10px 0' }}>
+                 Only Staff Management can configure Two-Factor Authentication for this account.
+               </div>
             ) : (
-              <div>
-                <div style={{ fontSize: '0.9rem', color: 'rgba(31,36,33,0.7)', marginBottom: 16 }}>
-                  2FA is currently <strong>disabled</strong>. We highly recommend enabling it to prevent unauthorized access.
+              <>
+                {twoFactorMsg && (
+                  <div style={{ fontSize: '0.85rem', color: twoFactorMsg.includes('enabled') || twoFactorMsg.includes('disabled') || twoFactorMsg.includes('removed') ? 'var(--color-forest)' : 'var(--color-error)', marginBottom: 16, fontWeight: 500 }}>
+                    {twoFactorMsg}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 20 }}>
+                  <div style={labelStyle}>Select your preferred 2FA Method</div>
+                  <select 
+                    value={mfaMethod} 
+                    onChange={handleMfaChange}
+                    style={{ ...inputStyle, width: 300, marginBottom: 10 }}
+                  >
+                    <option value="none">None (Password Only)</option>
+                    <option value="email">Email OTP</option>
+                    <option value="totp">Authenticator App (Recommended)</option>
+                  </select>
                 </div>
-                <button 
-                  onClick={handleEnable2FA} 
-                  disabled={saving2FA}
-                  className="admin-btn admin-btn--approve"
-                >
-                  {saving2FA ? 'Loading QR Code…' : 'Enable 2FA'}
-                </button>
-              </div>
+
+                {/* If TOTP is selected but not yet enabled, show the QR Code setup */}
+                {mfaMethod === 'totp' && !twoFactorEnabled && (
+                  <div style={{ padding: 16, background: '#f8f9fa', borderRadius: 6, border: '1px solid var(--color-line)', marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 10 }}>Authenticator App Setup</div>
+                    {qrCode ? (
+                      <div>
+                        <img src={qrCode} alt="2FA QR Code" style={{ display: 'block', width: 200, height: 200, marginBottom: 16 }} />
+                        <div style={{ fontSize: '0.85rem', marginBottom: 16 }}>
+                          Scan this QR code with Google Authenticator or Authy.<br/>
+                          Or enter this key manually: <strong>{twoFactorSecret}</strong>
+                        </div>
+                        <form onSubmit={handleVerify2FA} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+                          <div>
+                            <div style={labelStyle}>Enter 6-digit code to verify</div>
+                            <input
+                              type="text" required maxLength={6} placeholder="000000"
+                              value={totpCode} onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                              style={{ ...inputStyle, width: 150, fontFamily: 'var(--font-mono)', fontSize: '1.1rem', letterSpacing: 4 }}
+                            />
+                          </div>
+                          <button type="submit" disabled={saving2FA || totpCode.length < 6} className="admin-btn admin-btn--approve" style={{ padding: '9px 16px' }}>
+                            {saving2FA ? 'Verifying…' : 'Verify & Enable'}
+                          </button>
+                        </form>
+                      </div>
+                    ) : (
+                      <button onClick={handleEnable2FA} disabled={saving2FA} className="admin-btn" style={{ background: '#1c4a75', color: '#fff' }}>
+                        {saving2FA ? 'Loading…' : 'Generate QR Code'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* If already enabled, show status */}
+                {twoFactorEnabled && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: 4, fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Authenticator Active</span>
+                    <button onClick={handleDisable2FA} disabled={saving2FA} className="admin-btn admin-btn--reject" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
+                      Remove Authenticator
+                    </button>
+                  </div>
+                )}
+
+              </>
             )}
           </SectionCard>
         </>
