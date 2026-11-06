@@ -4,9 +4,6 @@ import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Small hand-drawn line icons - no icon library is installed, and adding
-// one just for a sidebar isn't worth the dependency. currentColor lets each
-// icon inherit the link's text color automatically (active/inactive/disabled).
 const icons = {
   dashboard: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
   queue: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>,
@@ -23,24 +20,24 @@ const icons = {
   staff: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   audit: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>,
   settings: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+  // 2026-11-06: NEW WALLET ICON
+  wallet: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 12V8a2 2 0 00-2-2H5a2 2 0 010-4h14v4"/><path d="M3 6v12a2 2 0 002 2h14a2 2 0 002-2v-4"/><circle cx="17" cy="14" r="2"/></svg>,
 };
 
 const NAV_GROUPS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', to: '/admin/dashboard', icon: icons.dashboard }], // Everyone
+    items: [{ label: 'Dashboard', to: '/admin/dashboard', icon: icons.dashboard }],
   },
   {
     label: 'Loans',
     items: [
       { label: 'Approval Queue', to: '/admin', icon: icons.queue, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Eligibility Directory', to: '/admin/eligibility', icon: icons.eligibility, roles: ['admin'] },
-      
-      // 2026-11-02: Added Loan Timeline Report
       { label: 'Loan Timeline', to: '/admin/loans/timeline', icon: icons.audit, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
-
-      // 2026-11-06: NEW Wallet Withdrawals monitor
-      { label: 'Wallet Withdrawals', to: '/admin/wallet-withdrawals', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
+      
+      // 2026-11-06: UPDATED ICON
+      { label: 'Wallet Withdrawals', to: '/admin/wallet-withdrawals', icon: icons.wallet, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
 
       { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
@@ -50,7 +47,7 @@ const NAV_GROUPS = [
   {
     label: 'Members',
     items: [
-      { label: 'Directory', to: '/admin/members', icon: icons.directory }, // Everyone
+      { label: 'Directory', to: '/admin/members', icon: icons.directory },
       { label: 'Contribution Logs', to: '/admin/contributions', icon: icons.contributions, roles: ['admin', 'sacco_admin', 'finance_officer'] },
     ],
   },
@@ -78,7 +75,7 @@ const NAV_GROUPS = [
   {
     label: 'Account',
     items: [
-      { label: 'Settings', to: '/admin/settings', icon: icons.settings }, // Everyone
+      { label: 'Settings', to: '/admin/settings', icon: icons.settings },
     ],
   },
 ];
@@ -101,7 +98,7 @@ function AdminLayout({ title, lede, children }) {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!canSeePendingLoans) return; // Don't poll if they can't see loans
+    if (!canSeePendingLoans) return;
     let cancelled = false;
     const poll = async () => {
       try {
@@ -112,9 +109,7 @@ function AdminLayout({ title, lede, children }) {
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setPendingCount(data.length);
-      } catch (err) {
-        // Silent
-      }
+      } catch (err) {}
     };
     poll();
     const interval = setInterval(poll, 30000);
@@ -140,13 +135,11 @@ function AdminLayout({ title, lede, children }) {
         </div>
 
         {NAV_GROUPS.map((group) => {
-          // Filter items based on user role
           const visibleItems = group.items.filter((item) => {
-            if (!item.roles) return true; // No roles array means everyone can see it
+            if (!item.roles) return true;
             return item.roles.includes(userRole);
           });
 
-          // If no items in this group are visible to this role, hide the entire group header
           if (visibleItems.length === 0) return null;
 
           return (

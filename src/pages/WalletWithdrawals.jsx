@@ -46,7 +46,6 @@ export default function WalletWithdrawals() {
     return t.wallet_type === activeTab;
   });
 
-  // FIXED: Using Math.abs() because the DB stores debits as negative amounts
   const totalWithdrawn = filtered
     .filter(t => t.transaction_type === 'withdrawal')
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
@@ -55,7 +54,6 @@ export default function WalletWithdrawals() {
     <AdminLayout title="Wallet Withdrawals" lede="Monitor all withdrawals from Member SACCO Wallets to M-Pesa.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
-      {/* TABS & STATS */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map((tab) => (
           <button
@@ -107,6 +105,18 @@ export default function WalletWithdrawals() {
             <tbody>
               {filtered.map((t) => {
                 const isSuccess = t.transaction_type === 'withdrawal';
+                // Check if Safaricom hasn't confirmed it yet
+                const isProcessing = isSuccess && (t.reference === 'Pending B2C' || t.reference.startsWith('WD-'));
+                
+                let statusBadge;
+                if (!isSuccess) {
+                   statusBadge = <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Failed</span>;
+                } else if (isProcessing) {
+                   statusBadge = <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Processing</span>;
+                } else {
+                   statusBadge = <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Success</span>;
+                }
+
                 return (
                   <tr key={t.id}>
                     <td style={{ color: 'rgba(31,36,33,0.6)' }}>
@@ -127,16 +137,16 @@ export default function WalletWithdrawals() {
                       {formatKES(Math.abs(t.amount))}
                     </td>
                     <td>
-                      <span style={{
-                        background: isSuccess ? '#dcfce7' : '#fee2e2',
-                        color: isSuccess ? '#15803d' : '#b91c1c',
-                        padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase'
-                      }}>
-                        {isSuccess ? 'Success' : 'Failed'}
-                      </span>
+                      {statusBadge}
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>
-                      {isSuccess ? t.reference : 'B2C Rejected / Refunded'}
+                      {!isSuccess ? (
+                        <span style={{ color: '#b91c1c' }}>B2C Rejected / Refunded</span>
+                      ) : isProcessing ? (
+                        <span style={{ color: '#d97706' }}>Awaiting Safaricom...</span>
+                      ) : (
+                        t.reference
+                      )}
                     </td>
                   </tr>
                 );
