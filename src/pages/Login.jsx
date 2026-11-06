@@ -71,9 +71,6 @@ function OtpBoxes({ value, onChange }) {
 }
 
 function maskEmail(message) {
-  // The backend already masks the email in `message` (e.g. "...sent to ra***e@gmail.com.")
-  // - just style the masked address in green. Final segment restricted to
-  // letters so it stops before the sentence-ending period, not after it.
   const match = message.match(/to ([^\s]+@[^\s]+\.[a-zA-Z]+)/);
   if (!match) return <>{message}</>;
   const [full, email] = match;
@@ -86,7 +83,9 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, verifyOtp } = useAuth();
+  
+  // 2026-11-06: Added verify2FA to handle Google Authenticator
+  const { login, verifyOtp, verify2FA } = useAuth(); 
   const navigate = useNavigate();
 
   const [otpStep, setOtpStep] = useState(null);
@@ -100,7 +99,12 @@ function Login() {
     try {
       const result = await login(username, password);
       if (result && result.otpRequired) {
-        setOtpStep({ otpToken: result.otpToken, message: result.message });
+        // Save the method (totp or email) in the state
+        setOtpStep({ 
+          otpToken: result.otpToken, 
+          message: result.message, 
+          method: result.method || 'email' 
+        });
         setOtpCode('');
       } else {
         navigate('/admin');
@@ -117,7 +121,11 @@ function Login() {
     setError('');
     setLoading(true);
     try {
-      await verifyOtp(otpStep.otpToken, otpCode);
+      if (otpStep.method === 'totp') {
+        await verify2FA(otpStep.otpToken, otpCode);
+      } else {
+        await verifyOtp(otpStep.otpToken, otpCode);
+      }
       navigate('/admin');
     } catch (err) {
       setError(err.response?.data?.error || 'Verification failed');
@@ -150,12 +158,16 @@ function Login() {
   return (
     <AuthLayout
       eyebrow={otpStep ? undefined : 'Admin Console'}
-      title={otpStep ? <>OTP <span style={{ color: 'var(--color-ink)' }}>Verification</span></> : 'KEMRI SACCO'}
+      title={otpStep ? <>Security <span style={{ color: 'var(--color-ink)' }}>Check</span></> : 'KEMRI SACCO'}
       subtitle={otpStep ? undefined : 'Welcome back — staff & admin sign in'}
     >
       {otpStep && (
         <p style={{ fontSize: '0.9rem', color: 'rgba(31,36,33,0.7)', textAlign: 'center', marginBottom: 22 }}>
-          {maskEmail(otpStep.message)}
+          {otpStep.method === 'totp' ? (
+            'Open your Authenticator app and enter the 6-digit code for KEMRI SACCO.'
+          ) : (
+            maskEmail(otpStep.message)
+          )}
         </p>
       )}
 
@@ -185,18 +197,23 @@ function Login() {
       ) : (
         <form onSubmit={handleVerifyOtp}>
           <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'rgba(31,36,33,0.6)', marginBottom: 10 }}>
-            Please Enter OTP
+            {otpStep.method === 'totp' ? 'Authenticator Code' : 'Please Enter OTP'}
           </div>
           <OtpBoxes value={otpCode} onChange={setOtpCode} />
           <button type="submit" disabled={loading || otpCode.length < 6} style={loading || otpCode.length < 6 ? buttonDisabledStyle : buttonStyle}>
-            {loading ? 'Verifying…' : 'Verify OTP'}
+            {loading ? 'Verifying…' : 'Verify Code'}
           </button>
-          <div style={{ textAlign: 'center', marginTop: 16, fontSize: '0.85rem' }}>
-            <span style={{ color: 'rgba(31,36,33,0.55)' }}>Have a problem with verification? </span>
-            <button type="button" onClick={handleResend} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', cursor: 'pointer', textDecoration: 'underline', padding: 0, font: 'inherit' }}>
-              {resending ? 'Sending…' : 'Resend OTP'}
-            </button>
-          </div>
+          
+          {/* Only show resend for Email OTP, not TOTP */}
+          {otpStep.method !== 'totp' && (
+            <div style={{ textAlign: 'center', marginTop: 16, fontSize: '0.85rem' }}>
+              <span style={{ color: 'rgba(31,36,33,0.55)' }}>Have a problem with verification? </span>
+              <button type="button" onClick={handleResend} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--color-forest)', cursor: 'pointer', textDecoration: 'underline', padding: 0, font: 'inherit' }}>
+                {resending ? 'Sending…' : 'Resend OTP'}
+              </button>
+            </div>
+          )}
+          
           <div style={{ textAlign: 'center', marginTop: 10 }}>
             <button type="button" onClick={() => setOtpStep(null)} style={{ background: 'none', border: 'none', color: 'rgba(31,36,33,0.4)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
               Back to login
