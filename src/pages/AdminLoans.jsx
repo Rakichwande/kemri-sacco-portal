@@ -252,7 +252,6 @@ function AdminLoans() {
     }
   };
 
-  // 1. RETRY AUTOMATIC B2C
   const handleRetryB2C = async (loanId) => {
     if (!window.confirm('Retry automatic B2C disbursement via Safaricom?')) return;
     try {
@@ -272,7 +271,6 @@ function AdminLoans() {
     }
   };
 
-  // 2. MANUAL DISBURSEMENT
   const handleManualDisburse = async (loanId) => {
     const mpesaReceipt = receipt[loanId]?.trim() || '';
     if (!mpesaReceipt) {
@@ -391,7 +389,7 @@ function AdminLoans() {
               <tr>
                 <th>Loan Ref</th>
                 <th>Member</th>
-                <th>Type</th> {/* <--- NEW COLUMN */}
+                <th>Type</th>
                 <th>Member Ref</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Timeline</th>
@@ -401,7 +399,11 @@ function AdminLoans() {
             </thead>
             <tbody>
               {visibleLoans.map((loan) => {
-                const isOverLimit = Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit));
+                // 2026-11-06: CRITICAL FIX - Only calculate the limit warning for Mobile loans.
+                // Emergency and School loans bypass the credit limit, so they should never show the warning.
+                const isOverLimit = loan.purpose === 'mobile' && (
+                  Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit))
+                );
                 
                 return (
                 <tr key={loan.id}>
@@ -428,7 +430,6 @@ function AdminLoans() {
                     )}
                   </td>
                   
-                  {/* NEW: Loan Type Column */}
                   <td>
                     <span style={{
                       background: loan.purpose === 'mobile' ? '#e0f2fe' : (loan.purpose === 'emergency' ? '#ffedd5' : '#f3e8ff'),
@@ -471,7 +472,6 @@ function AdminLoans() {
                         </div>
                       )}
                       
-                      {/* UPDATED ACTION BUTTONS FOR APPROVED LOANS */}
                       {loan.status === 'approved' && canManageLoans && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 200 }}>
                           
