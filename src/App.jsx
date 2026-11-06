@@ -20,7 +20,8 @@ import Settings from './pages/Settings';
 import LoanAgingReport from './pages/LoanAgingReport';
 import LoanIncome from './pages/LoanIncome';
 import LoanEligibility from './pages/LoanEligibility';
-import LoanTimeline from './pages/LoanTimeline'; // <--- ADDED
+import LoanTimeline from './pages/LoanTimeline';
+import WalletWithdrawals from './pages/WalletWithdrawals'; // 2026-11-06: NEW
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -36,13 +37,13 @@ function AppRoutes() {
       <Route path="/accept-invite/:token" element={<AcceptInvite />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
-      
+
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminLoans />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/admin/eligibility" element={
         <ProtectedRoute>
           <LoanEligibility />
@@ -53,6 +54,13 @@ function AppRoutes() {
       <Route path="/admin/loans/timeline" element={
         <ProtectedRoute>
           <LoanTimeline />
+        </ProtectedRoute>
+      } />
+
+      {/* 2026-11-06: NEW Wallet Withdrawals Route */}
+      <Route path="/admin/wallet-withdrawals" element={
+        <ProtectedRoute>
+          <WalletWithdrawals />
         </ProtectedRoute>
       } />
 

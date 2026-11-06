@@ -39,6 +39,9 @@ const NAV_GROUPS = [
       // 2026-11-02: Added Loan Timeline Report
       { label: 'Loan Timeline', to: '/admin/loans/timeline', icon: icons.audit, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
 
+      // 2026-11-06: NEW Wallet Withdrawals monitor
+      { label: 'Wallet Withdrawals', to: '/admin/wallet-withdrawals', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
+
       { label: 'Disbursement Log', to: '/admin/disbursements', icon: icons.disbursement, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Repayment History', to: '/admin/repayments', icon: icons.repayment, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
       { label: 'Loan Income', to: '/admin/income', icon: icons.income, roles: ['admin', 'sacco_admin', 'loans_officer', 'finance_officer'] },
