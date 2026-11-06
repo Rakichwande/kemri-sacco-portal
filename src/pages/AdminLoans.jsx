@@ -31,6 +31,8 @@ function formatKES(amount) {
 
 function formatLoanType(purpose) {
   if (!purpose) return 'Mobile';
+  if (purpose === 'bizboost') return 'BizBoost';
+  if (purpose === 'sme') return 'SME';
   return purpose.charAt(0).toUpperCase() + purpose.slice(1).toLowerCase();
 }
 
@@ -400,10 +402,22 @@ function AdminLoans() {
             <tbody>
               {visibleLoans.map((loan) => {
                 // 2026-11-06: CRITICAL FIX - Only calculate the limit warning for Mobile loans.
-                // Emergency and School loans bypass the credit limit, so they should never show the warning.
+                // Emergency, School, BizBoost, and SME loans bypass the credit limit, so they should never show the warning.
                 const isOverLimit = loan.purpose === 'mobile' && (
                   Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit))
                 );
+
+                // Group the loan types that go straight to M-Pesa via B2C
+                const isB2CType = ['mobile', 'bizboost', 'sme'].includes(loan.purpose);
+                // Group the loan types that go to the SACCO Wallet
+                const isWalletType = ['emergency', 'school'].includes(loan.purpose);
+                
+                // Set distinct badge colors
+                let typeBg = '#e0f2fe', typeColor = '#0369a1'; // Mobile default
+                if (loan.purpose === 'emergency') { typeBg = '#ffedd5'; typeColor = '#c2410c'; }
+                else if (loan.purpose === 'school') { typeBg = '#f3e8ff'; typeColor = '#7e22ce'; }
+                else if (loan.purpose === 'bizboost') { typeBg = '#ccfbf1'; typeColor = '#0f766e'; }
+                else if (loan.purpose === 'sme') { typeBg = '#cffafe'; typeColor = '#0891b2'; }
                 
                 return (
                 <tr key={loan.id}>
@@ -415,7 +429,7 @@ function AdminLoans() {
                       {loan.member_name || loan.member_id}
                       {loan.is_board_staff ? (
                         <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>BOARD/STAFF</span>
-                      ) : Number(loan.credit_limit) === 0 ? (
+                      ) : Number(loan.credit_limit) === 0 && loan.purpose === 'mobile' ? (
                         <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>NO LOAN</span>
                       ) : (
                         <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
@@ -432,8 +446,8 @@ function AdminLoans() {
                   
                   <td>
                     <span style={{
-                      background: loan.purpose === 'mobile' ? '#e0f2fe' : (loan.purpose === 'emergency' ? '#ffedd5' : '#f3e8ff'),
-                      color: loan.purpose === 'mobile' ? '#0369a1' : (loan.purpose === 'emergency' ? '#c2410c' : '#7e22ce'),
+                      background: typeBg,
+                      color: typeColor,
                       padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase'
                     }}>
                       {formatLoanType(loan.purpose)}
@@ -475,8 +489,8 @@ function AdminLoans() {
                       {loan.status === 'approved' && canManageLoans && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 200 }}>
                           
-                          {/* Mobile Loan Flow */}
-                          {loan.purpose === 'mobile' && (
+                          {/* Mobile / BizBoost / SME Flow (B2C to M-Pesa) */}
+                          {isB2CType && (
                             isOverLimit ? (
                               <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '6px 0' }}>
                                 Cannot Disburse (Over Limit)
@@ -515,8 +529,8 @@ function AdminLoans() {
                             )
                           )}
 
-                          {/* Emergency / School Loan Flow (Goes to Wallet) */}
-                          {loan.purpose !== 'mobile' && (
+                          {/* Emergency / School Flow (Goes to Wallet) */}
+                          {isWalletType && (
                             <div style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600, padding: '6px 0' }}>
                               Ready to Credit to Wallet
                             </div>
