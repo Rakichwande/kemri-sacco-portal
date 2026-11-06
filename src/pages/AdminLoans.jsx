@@ -29,6 +29,11 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
+function formatLoanType(purpose) {
+  if (!purpose) return 'Mobile';
+  return purpose.charAt(0).toUpperCase() + purpose.slice(1).toLowerCase();
+}
+
 function getToken() {
   return localStorage.getItem('token');
 }
@@ -73,7 +78,7 @@ function ReviewModal({ loan, onClose }) {
 
         {row('Phone', loan.phone_number || 'N/A')}
         {row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)}
-        {row('Purpose', loan.purpose || '—')}
+        {row('Loan Type', formatLoanType(loan.purpose))}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
         {row('Total amount payable', formatKES(loan.total_repayment))}
@@ -386,6 +391,7 @@ function AdminLoans() {
               <tr>
                 <th>Loan Ref</th>
                 <th>Member</th>
+                <th>Type</th> {/* <--- NEW COLUMN */}
                 <th>Member Ref</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Timeline</th>
@@ -421,6 +427,18 @@ function AdminLoans() {
                       </div>
                     )}
                   </td>
+                  
+                  {/* NEW: Loan Type Column */}
+                  <td>
+                    <span style={{
+                      background: loan.purpose === 'mobile' ? '#e0f2fe' : (loan.purpose === 'emergency' ? '#ffedd5' : '#f3e8ff'),
+                      color: loan.purpose === 'mobile' ? '#0369a1' : (loan.purpose === 'emergency' ? '#c2410c' : '#7e22ce'),
+                      padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase'
+                    }}>
+                      {formatLoanType(loan.purpose)}
+                    </span>
+                  </td>
+
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>
                     {loan.member_reference || '—'}
                   </td>
@@ -453,45 +471,55 @@ function AdminLoans() {
                         </div>
                       )}
                       
-                      {/* 2026-11-02: UPDATED ACTION BUTTONS FOR APPROVED LOANS */}
+                      {/* UPDATED ACTION BUTTONS FOR APPROVED LOANS */}
                       {loan.status === 'approved' && canManageLoans && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 200 }}>
                           
-                          {isOverLimit ? (
-                            <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '6px 0' }}>
-                              Cannot Disburse (Over Limit)
-                            </div>
-                          ) : (
-                            <>
-                              <button 
-                                onClick={() => handleRetryB2C(loan.id)} 
-                                className="admin-btn"
-                                style={{ background: '#1c4a75', color: '#fff', padding: '6px' }}
-                              >
-                                Retry B2C (Auto)
-                              </button>
-                              
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
-                                <span style={{ fontSize: '0.7rem', color: '#666' }}>Or manual receipt:</span>
-                                <input
-                                  type="text"
-                                  placeholder="M-Pesa Receipt"
-                                  value={receipt[loan.id] || ''}
-                                  onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
-                                  style={{
-                                    padding: '6px 8px', border: '1px solid var(--color-line)',
-                                    borderRadius: 4, fontSize: '0.82rem',
-                                  }}
-                                />
-                                <button 
-                                  onClick={() => handleManualDisburse(loan.id)} 
-                                  className="admin-btn"
-                                  style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px' }}
-                                >
-                                  Mark Manually Paid
-                                </button>
+                          {/* Mobile Loan Flow */}
+                          {loan.purpose === 'mobile' && (
+                            isOverLimit ? (
+                              <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '6px 0' }}>
+                                Cannot Disburse (Over Limit)
                               </div>
-                            </>
+                            ) : (
+                              <>
+                                <button 
+                                  onClick={() => handleRetryB2C(loan.id)} 
+                                  className="admin-btn"
+                                  style={{ background: '#1c4a75', color: '#fff', padding: '6px' }}
+                                >
+                                  Retry B2C (Auto)
+                                </button>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
+                                  <span style={{ fontSize: '0.7rem', color: '#666' }}>Or manual receipt:</span>
+                                  <input
+                                    type="text"
+                                    placeholder="M-Pesa Receipt"
+                                    value={receipt[loan.id] || ''}
+                                    onChange={(e) => setReceipt({ ...receipt, [loan.id]: e.target.value })}
+                                    style={{
+                                      padding: '6px 8px', border: '1px solid var(--color-line)',
+                                      borderRadius: 4, fontSize: '0.82rem',
+                                    }}
+                                  />
+                                  <button 
+                                    onClick={() => handleManualDisburse(loan.id)} 
+                                    className="admin-btn"
+                                    style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px' }}
+                                  >
+                                    Mark Manually Paid
+                                  </button>
+                                </div>
+                              </>
+                            )
+                          )}
+
+                          {/* Emergency / School Loan Flow (Goes to Wallet) */}
+                          {loan.purpose !== 'mobile' && (
+                            <div style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600, padding: '6px 0' }}>
+                              Ready to Credit to Wallet
+                            </div>
                           )}
 
                         </div>
