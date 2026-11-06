@@ -105,18 +105,7 @@ export default function WalletWithdrawals() {
             <tbody>
               {filtered.map((t) => {
                 const isSuccess = t.transaction_type === 'withdrawal';
-                // Check if Safaricom hasn't confirmed it yet
-                const isProcessing = isSuccess && (t.reference === 'Pending B2C' || t.reference.startsWith('WD-'));
                 
-                let statusBadge;
-                if (!isSuccess) {
-                   statusBadge = <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Failed</span>;
-                } else if (isProcessing) {
-                   statusBadge = <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Processing</span>;
-                } else {
-                   statusBadge = <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>Success</span>;
-                }
-
                 return (
                   <tr key={t.id}>
                     <td style={{ color: 'rgba(31,36,33,0.6)' }}>
@@ -137,13 +126,17 @@ export default function WalletWithdrawals() {
                       {formatKES(Math.abs(t.amount))}
                     </td>
                     <td>
-                      {statusBadge}
+                      <span style={{
+                        background: isSuccess ? '#dcfce7' : '#fee2e2',
+                        color: isSuccess ? '#15803d' : '#b91c1c',
+                        padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase'
+                      }}>
+                        {isSuccess ? 'Success' : 'Failed'}
+                      </span>
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>
                       {!isSuccess ? (
                         <span style={{ color: '#b91c1c' }}>B2C Rejected / Refunded</span>
-                      ) : isProcessing ? (
-                        <span style={{ color: '#d97706' }}>Awaiting Safaricom...</span>
                       ) : (
                         t.reference
                       )}
