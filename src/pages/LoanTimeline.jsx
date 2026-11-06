@@ -3,6 +3,13 @@ import AdminLayout from '../components/AdminLayout';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+function formatLoanType(purpose) {
+  if (!purpose) return 'Mobile';
+  if (purpose === 'bizboost') return 'BizBoost';
+  if (purpose === 'sme') return 'SME';
+  return purpose.charAt(0).toUpperCase() + purpose.slice(1).toLowerCase();
+}
+
 export default function LoanTimeline() {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +18,7 @@ export default function LoanTimeline() {
   // Default to current month and year
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [loanType, setLoanType] = useState('all'); // 2026-11-06: Added filter state
 
   const fetchTimeline = async () => {
     setLoading(true);
@@ -46,12 +54,15 @@ export default function LoanTimeline() {
     { v: 10, l: 'October' }, { v: 11, l: 'November' }, { v: 12, l: 'December' }
   ];
 
+  // 2026-11-06: Filter the timeline by selected loan type
+  const filteredLoans = loans.filter(l => loanType === 'all' || l.purpose === loanType);
+
   return (
     <AdminLayout title="Loan Timeline Report" lede="Track the full lifecycle of every loan application by month.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
         <select 
           value={month} 
           onChange={(e) => setMonth(Number(e.target.value))}
@@ -68,8 +79,22 @@ export default function LoanTimeline() {
           {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
 
+        {/* 2026-11-06: Added Loan Type Dropdown */}
+        <select 
+          value={loanType} 
+          onChange={(e) => setLoanType(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid var(--color-line)', borderRadius: 4 }}
+        >
+          <option value="all">All Loan Types</option>
+          <option value="mobile">Mobile</option>
+          <option value="emergency">Emergency</option>
+          <option value="school">School Fees</option>
+          <option value="bizboost">BizBoost</option>
+          <option value="sme">SME Loan</option>
+        </select>
+
         <span style={{ fontSize: '0.85rem', color: 'rgba(31,36,33,0.5)' }}>
-          Found {loans.length} applications
+          Found {filteredLoans.length} applications
         </span>
       </div>
 
@@ -82,6 +107,7 @@ export default function LoanTimeline() {
               <tr>
                 <th>Loan Ref</th>
                 <th>Member</th>
+                <th>Type</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Status</th>
                 <th>Applied At</th>
@@ -92,19 +118,33 @@ export default function LoanTimeline() {
               </tr>
             </thead>
             <tbody>
-              {loans.length === 0 ? (
+              {filteredLoans.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: 32, color: 'rgba(31,36,33,0.5)' }}>
-                    No loans found for this month.
+                  {/* Updated colSpan from 9 to 10 to account for the new Type column */}
+                  <td colSpan="10" style={{ textAlign: 'center', padding: 32, color: 'rgba(31,36,33,0.5)' }}>
+                    No loans found for this selection.
                   </td>
                 </tr>
               ) : (
-                loans.map(l => (
+                filteredLoans.map(l => {
+                  // 2026-11-06: Added badge colors for new loan types
+                  let typeBg = '#e0f2fe', typeColor = '#0369a1'; // Mobile default
+                  if (l.purpose === 'emergency') { typeBg = '#ffedd5'; typeColor = '#c2410c'; }
+                  else if (l.purpose === 'school') { typeBg = '#f3e8ff'; typeColor = '#7e22ce'; }
+                  else if (l.purpose === 'bizboost') { typeBg = '#ccfbf1'; typeColor = '#0f766e'; }
+                  else if (l.purpose === 'sme') { typeBg = '#cffafe'; typeColor = '#0891b2'; }
+
+                  return (
                   <tr key={l.id}>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 500, color: 'var(--color-forest-deep)' }}>
                       {l.reference}
                     </td>
                     <td style={{ fontWeight: 500 }}>{l.member_name}</td>
+                    <td>
+                      <span style={{ background: typeBg, color: typeColor, padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                        {formatLoanType(l.purpose)}
+                      </span>
+                    </td>
                     <td style={{ textAlign: 'right' }}>KES {Number(l.principal).toLocaleString()}</td>
                     <td>
                       <span className={`admin-badge admin-badge--${l.status}`}>
@@ -117,7 +157,7 @@ export default function LoanTimeline() {
                     <td style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{formatDate(l.rejected_at)}</td>
                     <td style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>{formatDate(l.repaid_at)}</td>
                   </tr>
-                ))
+                )})
               )}
             </tbody>
           </table>

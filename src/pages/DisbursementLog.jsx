@@ -9,6 +9,13 @@ function formatKES(amount) {
   return `KES ${Number(amount).toLocaleString()}`;
 }
 
+function formatLoanType(purpose) {
+  if (!purpose) return 'Mobile';
+  if (purpose === 'bizboost') return 'BizBoost';
+  if (purpose === 'sme') return 'SME';
+  return purpose.charAt(0).toUpperCase() + purpose.slice(1).toLowerCase();
+}
+
 const LIFECYCLE_STATUSES = ['approved', 'disbursing', 'disbursed', 'repaid'];
 
 // 2026-10-23: Replaced the ManualDisbursementModal with a simpler
@@ -45,14 +52,18 @@ function CreditWalletModal({ loan, onClose, onCredited }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(31,36,33,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 6, width: 440, maxWidth: '90vw', padding: 24 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-forest-deep)', marginBottom: 4 }}>
-          Credit Loan to Wallet
+          Process Disbursement
         </div>
         <div style={{ fontSize: '0.82rem', color: 'rgba(31,36,33,0.55)', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
           Loan #{loan.id} · {formatKES(loan.principal)} to {loan.member_name}
         </div>
 
         <div style={{ padding: 12, background: '#fbf3e6', border: '1px solid #e8d4a8', borderRadius: 4, fontSize: '0.82rem', color: '#7a5a10', marginBottom: 16 }}>
-          This will credit <strong>{formatKES(loan.principal)}</strong> to the member's SACCO Wallet and send them an SMS. They will then dial *483*4444# to withdraw the funds to their M-Pesa.
+          {['mobile', 'bizboost', 'sme'].includes(loan.purpose) ? (
+            <span>This will mark the <strong>{formatKES(loan.principal)}</strong> loan as manually paid to the member's M-Pesa.</span>
+          ) : (
+            <span>This will credit <strong>{formatKES(loan.principal)}</strong> to the member's SACCO Wallet and send them an SMS. They will then dial *483*4444# to withdraw the funds.</span>
+          )}
         </div>
 
         {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
@@ -63,7 +74,7 @@ function CreditWalletModal({ loan, onClose, onCredited }) {
               Cancel
             </button>
             <button type="submit" disabled={submitting} className="admin-btn admin-btn--approve" style={{ flex: 1 }}>
-              {submitting ? 'Crediting…' : 'Confirm & Credit'}
+              {submitting ? 'Processing…' : 'Confirm & Process'}
             </button>
           </div>
         </form>
@@ -80,6 +91,7 @@ function DisbursementLog() {
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [loanType, setLoanType] = useState('all'); // 2026-11-06: Added filter state
   const [creditTarget, setCreditTarget] = useState(null);
 
   const canManageLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(user?.role);
@@ -114,6 +126,9 @@ function DisbursementLog() {
   };
 
   const filtered = loans.filter((l) => {
+    // 2026-11-06: Filter by Loan Type
+    if (loanType !== 'all' && l.purpose !== loanType) return false;
+
     if (search.trim()) {
       const q = search.toLowerCase();
       const matches = l.member_name?.toLowerCase().includes(q) || String(l.id).includes(q) || l.member_reference?.toLowerCase().includes(q);
@@ -128,6 +143,7 @@ function DisbursementLog() {
     setSearch('');
     setDateFrom('');
     setDateTo('');
+    setLoanType('all');
   };
 
   const awaiting = filtered.filter((l) => l.status === 'approved');
@@ -162,21 +178,21 @@ function DisbursementLog() {
   };
 
   return (
-    <AdminLayout title="Loan Disbursements" lede="Approve-to-credit workflow — credit approved loans to members' SACCO Wallets.">
+    <AdminLayout title="Loan Disbursements" lede="Approve-to-credit workflow — credit approved loans to members' SACCO Wallets or M-Pesa.">
       {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
         <div className="admin-stat-card" style={{ '--stat-accent': '#7a5a10' }}>
           <div className="admin-stat-card__value">{awaiting.length}</div>
-          <div className="admin-stat-card__label">Awaiting Credit</div>
+          <div className="admin-stat-card__label">Awaiting Action</div>
         </div>
         <div className="admin-stat-card" style={{ '--stat-accent': 'var(--color-ink)' }}>
           <div className="admin-stat-card__value">{completed.length}</div>
-          <div className="admin-stat-card__label">Credited Loans</div>
+          <div className="admin-stat-card__label">Completed Loans</div>
         </div>
         <div className="admin-stat-card" style={{ '--stat-accent': '#55308a' }}>
           <div className="admin-stat-card__value">{formatKES(totalDisbursed)}</div>
-          <div className="admin-stat-card__label">Total Credited</div>
+          <div className="admin-stat-card__label">Total Disbursed</div>
         </div>
         <div className="admin-stat-card" style={{ '--stat-accent': '#a13030' }}>
           <div className="admin-stat-card__value">{formatKES(totalOutstanding)}</div>
@@ -185,7 +201,8 @@ function DisbursementLog() {
       </div>
 
       <div className="admin-table-card" style={{ padding: 16, marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        {/* 2026-11-06: Updated grid to include the dropdown */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div>
             <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Search Member / Reference</div>
             <input
@@ -196,6 +213,23 @@ function DisbursementLog() {
               style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.88rem', fontFamily: 'var(--font-body)' }}
             />
           </div>
+          
+          <div>
+            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Loan Type</div>
+            <select
+              value={loanType}
+              onChange={(e) => setLoanType(e.target.value)}
+              style={{ width: '100%', padding: '9px 10px', border: '1px solid var(--color-line)', borderRadius: 4, fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+            >
+              <option value="all">All Types</option>
+              <option value="mobile">Mobile</option>
+              <option value="emergency">Emergency</option>
+              <option value="school">School Fees</option>
+              <option value="bizboost">BizBoost</option>
+              <option value="sme">SME Loan</option>
+            </select>
+          </div>
+
           <div>
             <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'rgba(31,36,33,0.5)', marginBottom: 4 }}>Credited From</div>
             <input
@@ -227,7 +261,7 @@ function DisbursementLog() {
         <LoadingState />
       ) : filtered.length === 0 ? (
         <div className="admin-table-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(31,36,33,0.5)' }}>
-          No loans match that search.
+          No loans match that filter.
         </div>
       ) : (
         <div className="admin-table-card">
@@ -236,7 +270,7 @@ function DisbursementLog() {
               <tr>
                 <th>Loan ID</th>
                 <th>Member</th>
-                <th>Reference</th>
+                <th>Type</th>
                 <th style={{ textAlign: 'right' }}>Principal</th>
                 <th>Term</th>
                 <th style={{ textAlign: 'right' }}>Monthly</th>
@@ -246,13 +280,28 @@ function DisbursementLog() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((l) => (
+              {filtered.map((l) => {
+                // 2026-11-06: Added badge colors for new loan types
+                let typeBg = '#e0f2fe', typeColor = '#0369a1'; // Mobile default
+                if (l.purpose === 'emergency') { typeBg = '#ffedd5'; typeColor = '#c2410c'; }
+                else if (l.purpose === 'school') { typeBg = '#f3e8ff'; typeColor = '#7e22ce'; }
+                else if (l.purpose === 'bizboost') { typeBg = '#ccfbf1'; typeColor = '#0f766e'; }
+                else if (l.purpose === 'sme') { typeBg = '#cffafe'; typeColor = '#0891b2'; }
+
+                return (
                 <tr key={l.id}>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>#{l.id}</td>
-                  <td style={{ fontWeight: 500 }}>{l.member_name}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'rgba(31,36,33,0.6)' }}>{l.member_reference}</td>
+                  <td style={{ fontWeight: 500 }}>
+                    {l.member_name}
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(31,36,33,0.5)', fontFamily: 'var(--font-mono)' }}>{l.member_reference}</div>
+                  </td>
+                  <td>
+                    <span style={{ background: typeBg, color: typeColor, padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                      {formatLoanType(l.purpose)}
+                    </span>
+                  </td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.principal)}</td>
-                  <td>{l.tenure_months} {l.tenure_months === 1 ? 'mo' : 'mo'}</td>
+                  <td>{l.tenure_months} mo</td>
                   <td style={{ textAlign: 'right' }}>{formatKES(l.monthly_installment)}</td>
                   <td style={{ textAlign: 'right' }}>{remainingCell(l)}</td>
                   <td>{statusBadge(l.status)}</td>
@@ -263,7 +312,7 @@ function DisbursementLog() {
                         className="admin-btn admin-btn--approve"
                         style={{ fontSize: '0.78rem', padding: '6px 12px' }}
                       >
-                        Credit to Wallet
+                        {['mobile', 'bizboost', 'sme'].includes(l.purpose) ? 'Process B2C' : 'Credit to Wallet'}
                       </button>
                     )}
                     {l.status === 'approved' && !canManageLoans && (
@@ -271,7 +320,7 @@ function DisbursementLog() {
                     )}
                     
                     {l.status === 'disbursing' && (
-                      <span style={{ fontSize: '0.8rem', color: '#2a4a7a' }}>Legacy B2C In Flight</span>
+                      <span style={{ fontSize: '0.8rem', color: '#2a4a7a' }}>B2C In Flight</span>
                     )}
                     
                     {(l.status === 'disbursed' || l.status === 'repaid') && (
@@ -279,7 +328,7 @@ function DisbursementLog() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
