@@ -79,7 +79,12 @@ function ReviewModal({ loan, onClose }) {
         </div>
 
         {row('Phone', loan.phone_number || 'N/A')}
-        {row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)}
+        {/* 2026-11-07: Only show limit for Mobile, otherwise show it bypasses the limit */}
+        {loan.purpose === 'mobile' ? (
+          row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)
+        ) : (
+          row('Credit Limit', 'N/A (Bypasses Limit)')
+        )}
         {row('Loan Type', formatLoanType(loan.purpose))}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
@@ -401,8 +406,7 @@ function AdminLoans() {
             </thead>
             <tbody>
               {visibleLoans.map((loan) => {
-                // 2026-11-06: CRITICAL FIX - Only calculate the limit warning for Mobile loans.
-                // Emergency, School, BizBoost, and SME loans bypass the credit limit, so they should never show the warning.
+                // 2026-11-07: CRITICAL FIX - Only calculate the limit warning for Mobile loans.
                 const isOverLimit = loan.purpose === 'mobile' && (
                   Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit))
                 );
@@ -427,11 +431,14 @@ function AdminLoans() {
                   <td>
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {loan.member_name || loan.member_id}
-                      {loan.is_board_staff ? (
+                      {loan.is_board_staff && (
                         <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>BOARD/STAFF</span>
-                      ) : Number(loan.credit_limit) === 0 && loan.purpose === 'mobile' ? (
+                      )}
+                      {/* 2026-11-07: Only show limit badge for Mobile loans */}
+                      {!loan.is_board_staff && loan.purpose === 'mobile' && Number(loan.credit_limit) === 0 && (
                         <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>NO LOAN</span>
-                      ) : (
+                      )}
+                      {!loan.is_board_staff && loan.purpose === 'mobile' && Number(loan.credit_limit) > 0 && (
                         <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
                           LIMIT: KES {Number(loan.credit_limit).toLocaleString()}
                         </span>
