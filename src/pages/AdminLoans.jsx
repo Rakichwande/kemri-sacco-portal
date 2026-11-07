@@ -117,7 +117,8 @@ function AdminLoans() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  const canManageLoans = ['admin', 'sacco_admin', 'loans_officer'].includes(user?.role);
+  // 2026-11-07: CRITICAL FIX - Only CEO and SACCO Admin can approve/reject loans
+  const canManageLoans = ['admin', 'sacco_admin'].includes(user?.role);
 
   const initialTabSetRef = useRef(false);
   const pollRef = useRef(null);
