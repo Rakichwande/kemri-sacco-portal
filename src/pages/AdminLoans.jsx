@@ -79,12 +79,7 @@ function ReviewModal({ loan, onClose }) {
         </div>
 
         {row('Phone', loan.phone_number || 'N/A')}
-        {/* 2026-11-07: Only show limit for Mobile, otherwise show it bypasses the limit */}
-        {loan.purpose === 'mobile' ? (
-          row('Credit Limit', loan.is_board_staff ? 'BOARD/STAFF (10K)' : `KES ${Number(loan.credit_limit).toLocaleString()}`)
-        ) : (
-          row('Credit Limit', 'N/A (Bypasses Limit)')
-        )}
+        {row('Credit Limit', loan.is_board_staff ? `BOARD/STAFF (KES ${Number(loan.credit_limit).toLocaleString()})` : `KES ${Number(loan.credit_limit).toLocaleString()}`)}
         {row('Loan Type', formatLoanType(loan.purpose))}
         {row('Principal', formatKES(loan.principal))}
         {row('Interest rate', `${loan.interest_rate}%`)}
@@ -411,13 +406,32 @@ function AdminLoans() {
                   Number(loan.credit_limit) === 0 || (Number(loan.principal) > Number(loan.credit_limit))
                 );
 
-                // Group the loan types that go straight to M-Pesa via B2C
                 const isB2CType = ['mobile', 'bizboost', 'sme'].includes(loan.purpose);
-                // Group the loan types that go to the SACCO Wallet
                 const isWalletType = ['emergency', 'school'].includes(loan.purpose);
                 
-                // Set distinct badge colors
-                let typeBg = '#e0f2fe', typeColor = '#0369a1'; // Mobile default
+                // 2026-11-07: Custom Limit Logic
+                const defaultLimit = loan.is_board_staff ? 10000 : 5000;
+                const isCustomLimit = Number(loan.credit_limit) !== defaultLimit && Number(loan.credit_limit) > 0;
+                
+                let limitBg = '#e0f2fe'; // Default blue
+                let limitColor = '#0369a1';
+                let limitText = `LIMIT: KES ${Number(loan.credit_limit).toLocaleString()}`;
+
+                if (Number(loan.credit_limit) === 0) {
+                  limitBg = '#fee2e2'; // Red
+                  limitColor = '#b91c1c';
+                  limitText = 'NO LOAN';
+                } else if (loan.is_board_staff) {
+                  limitBg = '#fef3c7'; // Yellow
+                  limitColor = '#92400e';
+                  limitText = `BOARD/STAFF (KES ${Number(loan.credit_limit).toLocaleString()})`;
+                } else if (isCustomLimit) {
+                  limitBg = '#f3e8ff'; // Purple for custom limits
+                  limitColor = '#7e22ce';
+                }
+
+                // Badge colors for loan type
+                let typeBg = '#e0f2fe', typeColor = '#0369a1'; 
                 if (loan.purpose === 'emergency') { typeBg = '#ffedd5'; typeColor = '#c2410c'; }
                 else if (loan.purpose === 'school') { typeBg = '#f3e8ff'; typeColor = '#7e22ce'; }
                 else if (loan.purpose === 'bizboost') { typeBg = '#ccfbf1'; typeColor = '#0f766e'; }
@@ -431,19 +445,13 @@ function AdminLoans() {
                   <td>
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {loan.member_name || loan.member_id}
-                      {loan.is_board_staff && (
-                        <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>BOARD/STAFF</span>
-                      )}
-                      {/* 2026-11-07: Only show limit badge for Mobile loans */}
-                      {!loan.is_board_staff && loan.purpose === 'mobile' && Number(loan.credit_limit) === 0 && (
-                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>NO LOAN</span>
-                      )}
-                      {!loan.is_board_staff && loan.purpose === 'mobile' && Number(loan.credit_limit) > 0 && (
-                        <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
-                          LIMIT: KES {Number(loan.credit_limit).toLocaleString()}
-                        </span>
-                      )}
+                      
+                      {/* 2026-11-07: Always show the limit badge, but color-code it */}
+                      <span style={{ background: limitBg, color: limitColor, fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                        {limitText}
+                      </span>
                     </div>
+                    
                     {!loan.is_board_staff && isOverLimit && (
                       <div style={{ fontSize: '0.7rem', color: '#b91c1c', marginTop: 4, fontWeight: 500 }}>
                         ⚠️ Request exceeds limit
